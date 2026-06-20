@@ -17,20 +17,14 @@ def acessa_site(navegador):
     navegador.get(url)
 
 
-
-
 if __name__ == "__main__":
     navegador, firefox_pids = inicia_navegador()
     acessa_site(navegador=navegador)
 
     # Pausa inicial para simular a leitura humana da página inicial
-    time.sleep(random.uniform(2.0, 3.5))
+    time.sleep(random.uniform(1.0, 1.8))
     
     acoes = NavegadorPy(navegador=navegador)
-    
-    # 1. Abre modal/consulta inicial
-    acoes.clicar(elemento="/html/body/div[6]/div/div/a/img", tipo_dado="xpath", timer=20)
-    time.sleep(random.uniform(1.0, 1.8))
     
     # 2. Seleciona ComboBox Forma
     acoes.combobox(elemento="selForma", tipo_dado="id", timer=20, index=3)
@@ -59,7 +53,7 @@ if __name__ == "__main__":
     # 6. Botão Continuar/Enviar final (Usando o XPath mapeado por você)
     acoes.clicar(elemento="/html/body/div[1]/section/div[7]/div/form/input[1]", tipo_dado="xpath", timer=20)
 
-    time.sleep(random.uniform(2.0, 3.5)) # Aguarda abrir a tela de resultados (image_3d07ce.png)
+    time.sleep(random.uniform(0.8, 1.5)) # Aguarda abrir a tela de resultados (image_3d07ce.png)
 
     # --- INÍCIO DA ETAPA DA POC ENVIADA ---
     print("[INFO] Coletando lista de processos carregados...")
@@ -109,7 +103,7 @@ if __name__ == "__main__":
         else:
             print("-> Cor Planilha: BRANCO / ALERTA (Motivo: Tese localizada, mas a estrutura da decisão exige revisão manual)")
             
-        time.sleep(random.uniform(1.5, 2.5))
+        time.sleep(random.uniform(1.0, 2.0))
 
     print("\n[POC STATUS] Execução finalizada. Resultados gerados no console.")
     navegador.quit()
