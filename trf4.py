@@ -36,7 +36,7 @@ if __name__ == "__main__":
     
     # 4. Input com digitação humana (caractere por caractere via navegador.py)
     acoes.adicionar_informacao(elemento="txtValor", tipo_dado="id", valor="312.748.119-53", timer=20)
-    time.sleep(random.uniform(0.7, 1.4))
+    time.sleep(random.uniform(0.2, 0.5))
     
     # 5. Checkbox
     acoes.clicar(elemento="chkMostrarBaixados", tipo_dado="id", timer=20)
@@ -44,6 +44,8 @@ if __name__ == "__main__":
     
     # 6. Botão Enviar de forma limpa
     acoes.clicar(elemento="botaoEnviar", tipo_dado="id", timer=20)
+
+    time.sleep(random.uniform(0.8, 1.5))
 
     # --- BLOCO DE INTERCEPTAÇÃO DO CAPTCHA ---
     # O script faz uma pausa e aguarda o selo de sucesso aparecer dentro do iframe

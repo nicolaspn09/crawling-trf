@@ -100,10 +100,8 @@ class NavegadorPy:
 
     def obter_links_da_lista(self):
         """
-        Coleta dinamicamente os links dos processos baseando-se na árvore real do DOM
-        identificada nos prints image_3cf4cc.png e image_3cf4c3.png.
+        Coleta dinamicamente os links dos processos baseando-se na árvore real do DOM.
         """
-        # Elemento pai real identificado no console do desenvolvedor dos prints
         elementos = self.navegador.find_elements(By.XPATH, "//div[@id='divConteudo']/a")
         
         dados_processos = []
@@ -119,29 +117,109 @@ class NavegadorPy:
 
     def analisar_conteudo_processo(self, url_processo):
         """
-        Abre o href do processo em uma nova aba nativa para preservar a tela de listagem,
-        extrai o conteúdo textual e retorna para a aba de origem de forma segura.
+        Abre o href do processo em uma nova aba nativa, extrai os detalhes chave (strong[1], [2], [3], [8]),
+        clica para mostrar todas as fases, aguarda e extrai a tabela de fases do processo (seq, data, movimento, documentos),
+        e retorna as informações de forma estruturada.
         """
         # 1. Salva o identificador único da aba atual (a lista de processos)
         aba_principal = self.navegador.current_window_handle
         
-        # 2. Cria uma nova aba de forma nativa. 
-        # O Selenium abre a aba E já muda o foco do robô para ela automaticamente.
+        # 2. Cria uma nova aba de forma nativa e muda o foco para ela
         self.navegador.switch_to.new_window('tab')
         
         # 3. Navega na URL do processo dentro da nova aba isolada
         self.navegador.get(url_processo)
         
-        # Tempo de segurança para o carregamento dos dados internos do processo/eproc
+        # Tempo de segurança para o carregamento
         time.sleep(random.uniform(2.0, 3.5)) 
         
-        # Captura o corpo de texto completo da página do processo para a varredura
-        texto_pagina = self.navegador.find_element(By.TAG_NAME, "body").text.upper()
-        
-        # 4. Fecha apenas a aba atual de análise
+        # 4. Coleta de forma dinâmica todos os elementos strong no container de detalhes
+        dados_principais = {}
+        try:
+            elementos_strong = self.navegador.find_elements(By.XPATH, "/html/body/div[1]/section/div[7]/div/strong")
+            for idx, elemento_strong in enumerate(elementos_strong, start=1):
+                try:
+                    label = elemento_strong.text.strip().replace(":", "")
+                    if not label:
+                        label = f"Campo_{idx}"
+                    
+                    # Executa JS para obter todo o texto imediatamente a seguir do strong (nó irmão de texto)
+                    valor = self.navegador.execute_script(
+                        "var node = arguments[0].nextSibling; "
+                        "var text = ''; "
+                        "while (node && node.nodeType === 3) { "
+                        "    text += node.textContent; "
+                        "    node = node.nextSibling; "
+                        "} "
+                        "return text.trim();", 
+                        elemento_strong
+                    )
+                    dados_principais[label] = valor
+                except Exception:
+                    pass
+        except Exception as e:
+            print(f"[Erro] Falha ao coletar dados principais dinamicamente: {e}")
+
+        # 5. Clica no link "Clique aqui para mostrar todas as fases"
+        # Normalmente no XPath: /html/body/div[1]/section/div[7]/div/a[3]
+        try:
+            link_fases = WebDriverWait(self.navegador, 10).until(
+                EC.element_to_be_clickable((By.XPATH, "/html/body/div[1]/section/div[7]/div/a[3]"))
+            )
+            self.navegador.execute_script("arguments[0].click();", link_fases)
+        except Exception:
+            # Alternativa amigável baseada no texto do elemento se o XPath mudar
+            try:
+                link_fases = WebDriverWait(self.navegador, 5).until(
+                    EC.element_to_be_clickable((By.XPATH, "//a[contains(text(), 'mostrar todas as fases') or contains(text(), 'Mostrar todas as fases')]"))
+                )
+                self.navegador.execute_script("arguments[0].click();", link_fases)
+            except Exception as ex:
+                print(f"[Aviso] Link 'Clique aqui para mostrar todas as fases' não localizado: {ex}")
+
+        # Aguarda um pequeno momento para o carregamento das fases na tela
+        time.sleep(random.uniform(1.0, 2.0))
+
+        # 6. Aguarda e parseia a tabela de fases (/html/body/div[1]/section/div[7]/div/table)
+        lista_fases = []
+        try:
+            tabela = WebDriverWait(self.navegador, 15).until(
+                EC.presence_of_element_located((By.XPATH, "/html/body/div[1]/section/div[7]/div/table"))
+            )
+            
+            linhas = tabela.find_elements(By.TAG_NAME, "tr")
+            for linha in linhas:
+                colunas = linha.find_elements(By.TAG_NAME, "td")
+                if not colunas:
+                    continue # Ignora a linha de cabeçalho
+                
+                seq = colunas[0].text.strip() if len(colunas) > 0 else ""
+                data = colunas[1].text.strip() if len(colunas) > 1 else ""
+                movimento = colunas[2].text.strip() if len(colunas) > 2 else ""
+                
+                # Quarta coluna: 'documentos'
+                doc_links = []
+                if len(colunas) > 3:
+                    links_elementos = colunas[3].find_elements(By.TAG_NAME, "a")
+                    for link_el in links_elementos:
+                        href = link_el.get_attribute("href")
+                        texto_link = link_el.text.strip()
+                        if href:
+                            doc_links.append({"texto": texto_link, "url": href})
+                
+                lista_fases.append({
+                    "seq": seq,
+                    "data": data,
+                    "movimento": movimento,
+                    "documentos": doc_links
+                })
+        except Exception as e:
+            print(f"[Erro] Falha ao extrair tabela de fases do processo: {e}")
+
+        # 7. Fecha apenas a aba atual de análise
         self.navegador.close()
         
-        # 5. CRÍTICO: Devolve o foco do driver explicitamente para a listagem principal
+        # 8. Devolve o foco do driver explicitamente para a listagem principal
         self.navegador.switch_to.window(aba_principal)
         
-        return texto_pagina
+        return dados_principais, lista_fases
