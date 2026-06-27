@@ -4,6 +4,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.common.exceptions import TimeoutException
 
 class NavegadorPy:
     def __init__(self, navegador):
@@ -18,10 +19,13 @@ class NavegadorPy:
         }
         if tipo_dado not in by_map:
             raise ValueError(f"Tipo de dado inválido: {tipo_dado}")
-            
-        return WebDriverWait(self.navegador, timer).until(
-            EC.presence_of_element_located((by_map[tipo_dado], elemento))
-        )
+
+        try:
+            return WebDriverWait(self.navegador, timer).until(
+                EC.presence_of_element_located((by_map[tipo_dado], elemento))
+            )
+        except TimeoutException:
+            return None
 
     def clicar(self, tipo_dado, elemento, timer=60):
         elemento_pagina = self._obter_elemento(tipo_dado, elemento, timer)

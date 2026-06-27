@@ -1,4 +1,5 @@
 import os
+import token
 from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
@@ -9,6 +10,10 @@ class GoogleSheets:
         self.id_planilha = id_planilha
         self.range_dados = range_dados
         self.diretorio_json = diretorio_json
+        self.arquivo_token = os.path.join(
+            os.path.dirname(self.diretorio_json),
+            "token.json"
+        )
 
     # Função que obtém a margem informada pelo usuário
     def solicita_tabela(self):
@@ -28,8 +33,11 @@ class GoogleSheets:
         creds = None
 
         # Faz o login da API do Google
-        if os.path.exists(self.diretorio_json):
-            creds = Credentials.from_authorized_user_file(self.diretorio_json, SCOPES)
+        if os.path.exists(self.arquivo_token):
+            creds = Credentials.from_authorized_user_file(
+                self.arquivo_token,
+                SCOPES
+            )
         # If there are no (valid) credentials available, let the user log in.
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
@@ -38,7 +46,7 @@ class GoogleSheets:
                 flow = InstalledAppFlow.from_client_secrets_file(self.diretorio_json, SCOPES)
                 creds = flow.run_local_server(port=0)
             # Save the credentials for the next run
-            with open(self.diretorio_json, 'w') as token:
+            with open(self.arquivo_token, 'w') as token:
                 token.write(creds.to_json())
 
         # Faz a leitura e edição da planilha
@@ -105,3 +113,34 @@ class GoogleSheets:
                 linha.append("")
 
         return valores
+    
+    def atualizar_celula(self, celula, valor):
+        SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+
+        creds = None
+
+        if os.path.exists(self.arquivo_token):
+            creds = Credentials.from_authorized_user_file(self.arquivo_token, SCOPES)
+
+        if not creds or not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            else:
+                flow = InstalledAppFlow.from_client_secrets_file(self.diretorio_json, SCOPES)
+                creds = flow.run_local_server(port=0)
+
+            with open(self.arquivo_token, "w") as token:
+                token.write(creds.to_json())
+
+        service = build("sheets", "v4", credentials=creds)
+
+        body = {
+            "values": [[valor]]
+        }
+
+        service.spreadsheets().values().update(
+            spreadsheetId=self.id_planilha,
+            range=f"{self.range_dados}!{celula}",
+            valueInputOption="USER_ENTERED",
+            body=body
+        ).execute()
