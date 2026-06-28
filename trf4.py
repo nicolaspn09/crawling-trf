@@ -52,6 +52,7 @@ if __name__ == "__main__":
         # Valida o CPF antes de prosseguir
         if not validar_cpf(cpf):
             print(f"[AVISO] CPF inválido: {cpf}")
+            tabela_sheets.atualizar_celula(f"L{indice}", "CPF INVÁLIDO")
             continue
         
         # Acessa site
@@ -100,13 +101,10 @@ if __name__ == "__main__":
         print("[INFO] Coletando lista de processos carregados...")
         lista_processos = acoes.obter_links_da_lista()
         
-        print("[INFO] Mapeando processos gerados pelo CPF...")
-        lista_processos = acoes.obter_links_da_lista()
-        
         if not lista_processos:
             print("[AVISO] Nenhum processo foi encontrado para este CPF.")
-            navegador.quit()
-            exit()
+            tabela_sheets.atualizar_celula(f"L{indice}", "BRANCO - SEM PROCESSO")
+            continue
 
         # Limitador do escopo da POC: Executa o ciclo completo nos 2 primeiros da lista
         processos_poc = lista_processos[:2]
