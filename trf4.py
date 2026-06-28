@@ -22,6 +22,8 @@ def acessa_site(navegador):
 
 
 def validar_cpf(cpf):
+    if "." in str(cpf) or "-" in str(cpf):
+        cpf = str(cpf).replace(".", "").replace("-", "").strip()
     cpf = ''.join(filter(str.isdigit, cpf))
     if len(cpf) != 11 or cpf == cpf[0] * 11:
         return False
@@ -58,18 +60,26 @@ if __name__ == "__main__":
     
     try:
         for indice, linha in enumerate(guia_sheets[1:], start=2):
-            # Extrai o CPF da linha atual e remove espaços em branco
-            cpf = linha[0].strip()
             
-            # Obtém ou cria o cliente no banco para termos o cliente_id
-            cliente_id = db.obter_ou_criar_cliente(cpf=cpf)
+            # Extrai os dados básicos com segurança (caso a linha não tenha todas as colunas)
+            cpf = linha[0].strip() if len(linha) > 0 else ""
+            nome = linha[2].strip() if len(linha) > 2 else ""
+            ddd = linha[13].strip() if len(linha) > 13 else ""
+            telefone = linha[14].strip() if len(linha) > 14 else ""           
+            telefone_completo = f"{ddd}{telefone}".strip()
 
-            # Valida o CPF antes de prosseguir
+            # Valida o CPF antes de prosseguir (isso barra nomes soltos ou células vazias)
             if not validar_cpf(cpf):
-                print(f"[AVISO] CPF inválido: {cpf}")
+                print(f"[AVISO] CPF inválido, nome ou em branco: '{cpf}'")
                 tabela_sheets.atualizar_celula(f"L{indice}", "CPF INVÁLIDO")
-                db.inserir_oportunidade(cliente_id, "CPF INVÁLIDO", "O CPF não passou na validação.", "Descartado")
+                # Como não é um CPF válido, pulamos para a próxima linha SEM sujar o Banco de Dados
                 continue
+
+            # Limpa o CPF para manter padrão no banco de dados (apenas números)
+            cpf_limpo = ''.join(filter(str.isdigit, cpf))
+
+            # Obtém ou cria o cliente no banco para termos o cliente_id VERDADEIRO (ID numérico interno do Postgres)
+            cliente_id = db.obter_ou_criar_cliente(cpf=cpf_limpo, nome=nome, telefone=telefone_completo)
             
             print(f"\n[CONSULTA] Iniciando busca para o CPF: {cpf}")
             acessa_site(navegador=navegador)
@@ -189,6 +199,9 @@ if __name__ == "__main__":
                 db.inserir_oportunidade(cliente_id, status_rpa, motivo, fase)
 
                 time.sleep(random.uniform(1.0, 2.0))
+
+    except Exception as e:
+        print(e)
 
     finally:
         print("\n[POC STATUS] Execução finalizada. Banco atualizado.")

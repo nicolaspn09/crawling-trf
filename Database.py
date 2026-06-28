@@ -1,10 +1,14 @@
 import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 
-# Carrega as variáveis de ambiente do arquivo .env
-load_dotenv()
+# Obtém o caminho do diretório onde o script está localizado
+script_dir = os.path.dirname(os.path.abspath(__file__))
+# Procura o .env a partir do diretório do script
+dotenv_path = find_dotenv(os.path.join(script_dir, '.env'))
+
+load_dotenv(dotenv_path)
 
 class Database:
     def __init__(self):
