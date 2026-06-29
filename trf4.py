@@ -102,17 +102,6 @@ if __name__ == "__main__":
             acoes.clicar(elemento="botaoEnviar", tipo_dado="id", timer=20)
             time.sleep(random.uniform(0.8, 1.5))
 
-            # Verifica Cloudflare
-            cloudflare = acoes._obter_elemento(elemento="/html/body/div[1]/section/div[7]/div/form/input[1]", tipo_dado="xpath", timer=20)
-            if cloudflare is not None:
-                acoes.aguardar_sucesso_cloudflare(timeout_captcha=30)
-                time.sleep(random.uniform(0.5, 1.2))
-                try:
-                    acoes.clicar(elemento="/html/body/div[1]/section/div[7]/div/form/input[1]", tipo_dado="xpath", timer=5)
-                    time.sleep(random.uniform(0.8, 1.5))
-                except Exception:
-                    pass
-
             # Trata possíveis popups (ex: Nenhum processo encontrado) nativos do site
             tem_alerta, texto_alerta = tratar_alerta_popup(navegador, timeout=3)
             if tem_alerta:
@@ -121,6 +110,24 @@ if __name__ == "__main__":
                 db.inserir_oportunidade(cliente_id, "BRANCO - SEM PROCESSO", f"Alerta do tribunal: {texto_alerta}", "Descartado")
                 continue
 
+            # Trata possível erro ao buscar o CPF 
+            erro_site = acoes._obter_elemento(elemento="divInfraBarraLocalizacao", tipo_dado="id", timer=3)
+            if erro_site:
+                print("Site com erro! Aguardando para iniciar nova tentativa de extração")
+                time.sleep(random.uniform(5.0, 10.0))
+                continue
+
+            # Verifica Cloudflare
+            cloudflare = acoes._obter_elemento(elemento="/html/body/div[1]/section/div[7]/div/form/input[1]", tipo_dado="xpath", timer=5)
+            if cloudflare:
+                acoes.aguardar_sucesso_cloudflare(timeout_captcha=30)
+                time.sleep(random.uniform(0.5, 1.2))
+                try:
+                    acoes.clicar(elemento="/html/body/div[1]/section/div[7]/div/form/input[1]", tipo_dado="xpath", timer=5)
+                    time.sleep(random.uniform(0.8, 1.5))
+                except Exception:
+                    pass
+            
             print("[INFO] Coletando lista de processos carregados...")
             lista_processos = acoes.obter_links_da_lista()
             
