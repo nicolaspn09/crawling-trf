@@ -170,8 +170,10 @@ class NavegadorPy:
             for i in range(1, 20):
                 try:
                     link_fases = WebDriverWait(self.navegador, 1).until(EC.element_to_be_clickable((By.XPATH, f"/html/body/div[1]/section/div[7]/div/div[{i}]/a")))
-                    self.navegador.execute_script("arguments[0].click();", link_fases)
-                    break
+                    texto_link = link_fases.text.strip()
+                    if texto_link == "Clique aqui para mostrar todas as fases":
+                        self.navegador.execute_script("arguments[0].click();", link_fases)
+                        break
                 except:
                     continue
 
