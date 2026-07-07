@@ -16,13 +16,18 @@ O objetivo principal desta Prova de Conceito (POC) é realizar a busca automatiz
 
 ---
 
-## 📁 Estrutura de Arquivos
+## 📁 Estrutura de Arquivos (Arquitetura Modular)
 
-*   **`trf4.py`:** Arquivo principal de orquestração do fluxo. Realiza a inicialização do driver, o preenchimento dos filtros de pesquisa, o tratamento do captcha, a coleta de links e a execução da lógica de triagem dos processos da POC.
+Seguindo o princípio de Responsabilidade Única (SRP), a aplicação está dividida em módulos abstraídos:
+
+*   **`main_robo.py`:** Ponto de entrada oficial da aplicação. Configura o dicionário de mapeamento entre Estados e os seus respectivos robôs de processamento (ex: "SANTA CATARINA" -> `BotTRF4().executar`), orquestrando a pipeline de forma abstrata.
+*   **`Orquestrador.py`:** Classe `OrquestradorDrive` responsável por realizar a navegação e leitura estruturada nas pastas da nuvem (Teses -> Estados -> Planilhas), acionar a validação do arquivo e delegar a execução ao Bot correto.
+*   **`GoogleDrive.py`:** Classe `GoogleDriveManager` responsável exclusivamente pela comunicação com a API do Google Drive (listar, criar pastas, baixar `.xlsx`/`.csv` e mover arquivos validados para a pasta "ANALISADO").
+*   **`trf4.py`:** Classe `BotTRF4`. Contém toda a lógica orientada a objetos para abrir o navegador, tratar captcha, coletar links e executar a triagem jurídica no site do TRF4. Totalmente desacoplada da fonte de dados originais.
+*   **`Database.py`:** Classe responsável pela comunicação exclusiva com o banco de dados PostgreSQL.
 *   **`navegador.py`:** Wrapper robusto (`NavegadorPy`) sobre a API do Selenium WebDriver. Centraliza funções reutilizáveis como cliques assistidos, digitação humanizada, gerenciamento de abas e detecção/foco no iframe do Cloudflare.
-*   **`acessaSite.py`:** Módulo utilitário (`AcessaSite`) encarregado de mapear e retornar a URL correta do portal processual com base na Unidade Federativa (UF) informada (Roteamento TRF1 a TRF6).
-*   **`conectaChrome.py`:** Configura e inicializa o navegador Google Chrome em modo furtivo utilizando a biblioteca `undetected_chromedriver`. Inclui rastreamento de PIDs filhos para encerramento seguro.
-*   **`conectaFirefox.py`:** Configura e inicializa o navegador Mozilla Firefox via GeckoDriver com preferências profundas de antibot e camuflagem de User-Agent.
+*   **`acessaSite.py`:** Módulo utilitário (`AcessaSite`) encarregado de mapear e retornar a URL correta do portal processual com base na Unidade Federativa (UF) informada.
+*   **`conectaChrome.py` & `conectaFirefox.py`:** Módulos que configuram e inicializam os navegadores em modo furtivo utilizando técnicas de evasão antibot.
 
 ---
 
@@ -59,10 +64,10 @@ pip install selenium undetected-chromedriver psutil requests
 
 ## 💻 Como Executar
 
-Para iniciar a execução da automação (atualmente parametrizada em modo de demonstração/POC para analisar os dois primeiros resultados encontrados):
+Para iniciar a execução da automação (que varre o Google Drive, baixa as planilhas pendentes e ativa os robôs correspondentes parametrizados):
 
 ```bash
-python trf4.py
+python main_robo.py
 ```
 
 ## ⚠️ Avisos e Boas Práticas
