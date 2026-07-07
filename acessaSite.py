@@ -20,4 +20,4 @@ class AcessaSite:
             return "https://www.trf5.jus.br/index.php/consulta-processual-fisico-e-eletronico"
         
         if str(uf).lower() in ("mg"):
-            return "https://portal.trf6.jus.br/"
+            return "https://pje2g.trf6.jus.br/consultapublica/ConsultaPublica/listView.seam"

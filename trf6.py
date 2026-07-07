@@ -11,7 +11,7 @@ from navegador import NavegadorPy
 from GoogleSheets import GoogleSheets
 from Database import Database
 
-class BotTRF4:
+class BotTRF6:
     def __init__(self):
         # A inicialização do banco não deve ocorrer no loop, mas sim na classe
         pass
@@ -21,7 +21,7 @@ class BotTRF4:
         return navegador, firefox_pids
 
     def _acessa_site(self, navegador):
-        url = AcessaSite().site("sc")
+        url = AcessaSite().site("mg")
         navegador.get(url)
 
     def _validar_cpf(self, cpf):
@@ -55,8 +55,8 @@ class BotTRF4:
                 # Extrai os dados básicos com segurança (caso a linha não tenha todas as colunas)
                 cpf = linha[0].strip() if len(linha) > 0 else ""
                 nome = linha[2].strip() if len(linha) > 2 else ""
-                ddd = str(linha[13]).strip() if len(linha) > 13 else ""
-                telefone = str(linha[14]).strip() if len(linha) > 14 else ""           
+                ddd = linha[13].strip() if len(linha) > 13 else ""
+                telefone = linha[14].strip() if len(linha) > 14 else ""           
                 telefone_completo = f"{ddd}{telefone}".strip()
 
                 # Valida o CPF antes de prosseguir
@@ -79,31 +79,46 @@ class BotTRF4:
                 
                 acoes = NavegadorPy(navegador=navegador)
                 
-                acoes.combobox(elemento="selForma", tipo_dado="id", timer=20, index=3)
+                acoes.combobox(elemento="   ", tipo_dado="id", timer=20, index=3)
                 time.sleep(random.uniform(0.6, 1.2))
                 
-                acoes.combobox(elemento="selOrigem", tipo_dado="id", timer=20, index=2)
-                time.sleep(random.uniform(0.5, 1.0))
-                
-                acoes.adicionar_informacao(elemento="txtValor", tipo_dado="id", valor=cpf, timer=20)
+                acoes.adicionar_informacao(elemento="fPP:dpDec:documentoParte", tipo_dado="id", valor=cpf, timer=20)
                 time.sleep(random.uniform(0.2, 0.5))
                 
-                acoes.clicar(elemento="chkMostrarBaixados", tipo_dado="id", timer=20)
-                time.sleep(random.uniform(0.8, 1.5))
-                
-                acoes.clicar(elemento="botaoEnviar", tipo_dado="id", timer=20)
+                acoes.clicar(elemento="fPP:searchProcessos", tipo_dado="id", timer=20)
                 time.sleep(random.uniform(0.8, 1.5))
 
-                # Trata possíveis popups (ex: Nenhum processo encontrado) nativos do site
-                tem_alerta, texto_alerta = self._tratar_alerta_popup(navegador, timeout=3)
-                if tem_alerta:
-                    print(f"[RESULTADO] CPF {cpf}: Não foi encontrado. (Alerta: {texto_alerta})")
-                    if atualizar_status_callback:
-                        atualizar_status_callback(indice, "BRANCO - SEM PROCESSO")
-                    db.inserir_oportunidade(cliente_id, "BRANCO - SEM PROCESSO", f"Alerta do tribunal: {texto_alerta}", "Descartado")
-                    continue
+                info_login = acoes.obtem_informacao(elemento="fPP:j_id230", tipo_dado="id", timer=20)
+                time.sleep(random.uniform(0.8, 1.5))
 
-                # Trata possível erro ao buscar o CPF 
+                if "não encontrou nenhum processo" in info_login:
+                    print(f"[RESULTADO] CPF {cpf}: A pesquisa não encontrou nenhum processo disponível.)")
+
+                    acoes = NavegadorPy(navegador=navegador)
+                    
+                    acoes.combobox(elemento="   ", tipo_dado="id", timer=20, index=3)
+                    time.sleep(random.uniform(0.6, 1.2))
+
+                    acoes.adicionar_informacao(elemento="fPP:dnp:nomeParte", tipo_dado="id", valor=nome, timer=20)
+                    time.sleep(random.uniform(0.2, 0.5))
+                    
+                    acoes.clicar(elemento="fPP:searchProcessos", tipo_dado="id", timer=20)
+                    time.sleep(random.uniform(0.8, 1.5))
+
+                    info_login = acoes.obtem_informacao(elemento="fPP:j_id230", tipo_dado="id", timer=20)
+                    time.sleep(random.uniform(0.8, 1.5))
+
+                    if "não encontrou nenhum processo" in info_login:
+                        if atualizar_status_callback:
+                            atualizar_status_callback(indice, "BRANCO - SEM PROCESSO")
+                        db.inserir_oportunidade(cliente_id, "BRANCO - SEM PROCESSO", f"Alerta do tribunal:  A pesquisa não encontrou nenhum processo disponível.", "Descartado")
+                        continue
+                    
+                    acoes.clicar(elemento="/html/body/div[6]/div/div/div/div[2]/form/div[2]/div/table/tbody/tr/td[1]/a", tipo_dado="xpath", timer=20)
+                    time.sleep(random.uniform(0.8, 1.5))
+
+
+                """# Trata possível erro ao buscar o CPF 
                 erro_site = acoes._obter_elemento(elemento="divInfraBarraLocalizacao", tipo_dado="id", timer=3)
                 if erro_site:
                     print("Site com erro! Aguardando para iniciar nova tentativa de extração")
@@ -119,7 +134,7 @@ class BotTRF4:
                         acoes.clicar(elemento="/html/body/div[1]/section/div[7]/div/form/input[1]", tipo_dado="xpath", timer=5)
                         time.sleep(random.uniform(0.8, 1.5))
                     except Exception:
-                        pass
+                        pass"""
                 
                 print("[INFO] Coletando lista de processos carregados...")
                 lista_processos = acoes.obter_links_da_lista()
