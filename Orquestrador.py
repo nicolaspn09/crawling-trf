@@ -80,27 +80,33 @@ class OrquestradorDrive:
                 wb = openpyxl.load_workbook(file_stream)
                 ws = wb.active
             
-            def callback_status(indice, status):
+            def callback_status(indice, status, numero_processo="", assunto=""):
                 if planilha_api:
                     try:
-                        planilha_api.atualizar_celula(f"BT{indice}", status)
+                        planilha_api.atualizar_celula(f"BT{indice}", numero_processo)
+                        planilha_api.atualizar_celula(f"BU{indice}", assunto)
+                        planilha_api.atualizar_celula(f"BV{indice}", status)
                         planilha_api.pintar_linha(indice, status)
                     except Exception as e:
                         # Fallback caso a aba não se chame "Geral"
                         try:
                             # Tenta sem o nome da aba (atualiza a primeira visível)
                             planilha_api.range_dados = ""
-                            planilha_api.atualizar_celula(f"BT{indice}", status)
+                            planilha_api.atualizar_celula(f"BT{indice}", numero_processo)
+                            planilha_api.atualizar_celula(f"BU{indice}", assunto)
+                            planilha_api.atualizar_celula(f"BV{indice}", status)
                             planilha_api.pintar_linha(indice, status)
                         except Exception as e2:
                             print(f"         [AVISO] Não foi possível pintar a linha {indice} no Google Sheets. Erro: {e2}")
                 else:
                     if ws:
                         try:
-                            ws[f"BT{indice}"] = status
+                            ws[f"BT{indice}"] = numero_processo
+                            ws[f"BU{indice}"] = assunto
+                            ws[f"BV{indice}"] = status
                         except Exception:
                             pass
-                    print(f"         Status (Offline/Excel): Linha {indice} -> {status}")
+                    print(f"         Status (Offline/Excel): Linha {indice} -> {status} | Proc: {numero_processo} | Assunto: {assunto}")
 
             # Executa o bot com Single Responsibility
             # O bot processa e não precisa saber de onde vieram os dados

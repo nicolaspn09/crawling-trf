@@ -188,7 +188,7 @@ class BotTRF4:
                 if tem_alerta and not lista_processos:
                     print(f"[RESULTADO FINAL] CPF {cpf} e NOME {nome}: Não foi encontrado. (Alerta: {texto_alerta})")
                     if atualizar_status_callback:
-                        atualizar_status_callback(indice, "BRANCO - NADA CONSTA")
+                        atualizar_status_callback(indice, "BRANCO - NADA CONSTA", "", "")
                     db.inserir_oportunidade(cliente_id, "BRANCO", "NADA CONSTA", "Descartado")
                     continue
                     
@@ -200,7 +200,7 @@ class BotTRF4:
                 if not lista_processos:
                     print(f"[AVISO FINAL] Nenhum processo foi encontrado para o CPF/NOME {cpf}.")
                     if atualizar_status_callback:
-                        atualizar_status_callback(indice, "BRANCO - NADA CONSTA")
+                        atualizar_status_callback(indice, "BRANCO - NADA CONSTA", "", "")
                     db.inserir_oportunidade(cliente_id, "BRANCO - NADA CONSTA", "Lista de processos vazia", "Descartado")
                     continue
 
@@ -228,7 +228,7 @@ class BotTRF4:
                     if not is_contra_inss:
                         print("-> Cor Planilha: BRANCO (Motivo: Não é uma ação movida contra o INSS)")
                         if atualizar_status_callback:
-                            atualizar_status_callback(indice, "BRANCO - Não movida contra o INSS")
+                            atualizar_status_callback(indice, "BRANCO - Não movida contra o INSS", numero_processo, assunto_processo)
                         db.inserir_processo(cliente_id, numero_processo, link_processo=proc['url'], polo_passivo=polo_passivo, tem_tese_concomitante=False, status_merito="Descartado", assunto=assunto_processo)
                         db.inserir_oportunidade(cliente_id, "BRANCO", "Não é ação contra INSS", "Descartado")
                         continue
@@ -295,7 +295,7 @@ class BotTRF4:
                     if not possui_tese:
                         print("-> Cor Planilha: BRANCO (Motivo: Ação contra o INSS, mas NÃO encontrou a tese na sentença/decisão)")
                         if atualizar_status_callback:
-                            atualizar_status_callback(indice, "BRANCO - Outra tese jurídica")
+                            atualizar_status_callback(indice, "BRANCO - Outra tese jurídica", numero_processo, assunto_processo)
                         db.inserir_processo(cliente_id, numero_processo, link_processo=proc['url'], polo_passivo=polo_passivo, tem_tese_concomitante=False, status_merito="Descartado", link_sentenca=link_principal, assunto=assunto_processo)
                         db.inserir_oportunidade(cliente_id, "BRANCO", "Ação contra o INSS, mas trata de outra tese jurídica", "Descartado")
                         continue
@@ -329,11 +329,8 @@ class BotTRF4:
                         motivo = "Tese localizada, mas a estrutura da decisão exige revisão manual."
                         fase_oportunidade = "Revisão Manual"
 
-                    # Monta o texto de status enriquecido para a planilha
-                    status_rpa_completo = f"{status_rpa} | Processo: {numero_processo} | Assunto: {assunto_processo}"
-
                     if atualizar_status_callback:
-                        atualizar_status_callback(indice, status_rpa_completo)
+                        atualizar_status_callback(indice, status_rpa, numero_processo, assunto_processo)
                     db.inserir_processo(cliente_id, numero_processo, link_processo=proc['url'], polo_passivo=polo_passivo, tem_tese_concomitante=True, status_merito=status_merito, link_sentenca=link_principal, assunto=assunto_processo)
                     db.inserir_oportunidade(cliente_id, status_rpa, motivo, fase_oportunidade)
 
