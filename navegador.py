@@ -182,7 +182,7 @@ class NavegadorPy:
                 try:
                     link_fases = WebDriverWait(self.navegador, 1).until(EC.element_to_be_clickable((By.XPATH, f"/html/body/div[1]/section/div[7]/div/div[{i}]/a")))
                     texto_link = link_fases.text.strip()
-                    if texto_link == "Clique aqui para mostrar todas as fases":
+                    if texto_link == "Clique aqui para mostrar todas as fases" or "próximos eventos" in texto_link:
                         self.navegador.execute_script("arguments[0].click();", link_fases)
                         break
                 except:
@@ -198,8 +198,8 @@ class NavegadorPy:
             except Exception as ex:
                 print(f"[Aviso] Link 'Clique aqui para mostrar todas as fases' não localizado: {ex}")
 
-        # Aguarda um pequeno momento para o carregamento das fases na tela
-        time.sleep(random.uniform(0.5, 1.0))
+        # Aguarda o E-proc finalizar o AJAX que recarrega a tabela inteira de fases
+        time.sleep(random.uniform(2.5, 3.5))
 
         # 6. Aguarda e parseia a tabela de fases (/html/body/div[1]/section/div[7]/div/table)
         lista_fases = []

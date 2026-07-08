@@ -56,6 +56,10 @@ class BotTRF4:
             try:
                 # Extrai os dados básicos com segurança (caso a linha não tenha todas as colunas)
                 cpf = linha[0].strip() if len(linha) > 0 else ""
+
+                # if "89254759953" not in str(cpf).replace("-", "").replace(".", ""):
+                #     continue
+                
                 nome = linha[2].strip() if len(linha) > 2 else ""
                 ddd = str(linha[13]).strip() if len(linha) > 13 else ""
                 telefone = str(linha[14]).strip() if len(linha) > 14 else ""           
@@ -63,10 +67,7 @@ class BotTRF4:
 
                 # Valida o CPF antes de prosseguir
                 if not self._validar_cpf(cpf):
-                    print(f"[AVISO] CPF inválido, nome ou em branco: '{cpf}'")
-                    # if atualizar_status_callback:
-                    #     atualizar_status_callback(indice, "CPF INVÁLIDO")
-                    # Como não é um CPF válido, pulamos para a próxima linha SEM sujar o Banco de Dados
+                    print(f"[AVISO] CPF inválido ou em branco: '{cpf}'. Pulando linha.")
                     continue
 
                 # Limpa o CPF para manter padrão no banco de dados (apenas números)
@@ -188,7 +189,7 @@ class BotTRF4:
                     print(f"[RESULTADO FINAL] CPF {cpf} e NOME {nome}: Não foi encontrado. (Alerta: {texto_alerta})")
                     if atualizar_status_callback:
                         atualizar_status_callback(indice, "BRANCO - NADA CONSTA")
-                    db.inserir_oportunidade(cliente_id, "BRANCO - NADA CONSTA", f"Alerta do tribunal duplo: {texto_alerta}", "Descartado")
+                    db.inserir_oportunidade(cliente_id, "BRANCO", "NADA CONSTA", "Descartado")
                     continue
                     
                 if erro_site and not lista_processos:
@@ -218,7 +219,8 @@ class BotTRF4:
                     texto_processo = str(dados_principais).upper() + " " + str(lista_fases).upper()
                     
                     # VALIDAÇÃO 1: O polo passivo obrigatoriamente precisa ser o INSS
-                    polo_passivo = "Desconhecido"
+                    polo_passivo = dados_principais.get('Réu', 'Desconhecido')
+                    assunto_processo = dados_principais.get('Assuntos', dados_principais.get('Assunto', 'Não informado'))
                     is_contra_inss = ("INSS" in texto_processo) or ("INSTITUTO NACIONAL DO SEGURO SOCIAL" in texto_processo)
                     if is_contra_inss:
                         polo_passivo = "INSS"
@@ -226,20 +228,75 @@ class BotTRF4:
                     if not is_contra_inss:
                         print("-> Cor Planilha: BRANCO (Motivo: Não é uma ação movida contra o INSS)")
                         if atualizar_status_callback:
-                            atualizar_status_callback(indice, "BRANCO")
-                        db.inserir_processo(cliente_id, numero_processo, link_processo=proc['url'], polo_passivo=polo_passivo, tem_tese_concomitante=False, status_merito="Descartado")
+                            atualizar_status_callback(indice, "BRANCO - Não movida contra o INSS")
+                        db.inserir_processo(cliente_id, numero_processo, link_processo=proc['url'], polo_passivo=polo_passivo, tem_tese_concomitante=False, status_merito="Descartado", assunto=assunto_processo)
                         db.inserir_oportunidade(cliente_id, "BRANCO", "Não é ação contra INSS", "Descartado")
                         continue
                         
-                    # VALIDAÇÃO 2: Verificação do assunto / tese de Atividade Concomitante
-                    termos_tese = ["CONCOMITANTE", "ART. 32", "LEI 8.213", "TEMA 1070"]
-                    possui_tese = any(termo in texto_processo for termo in termos_tese)
+                    # VALIDAÇÃO 2: Busca TODAS as URLs da sentença na coluna 4 daquela fase e entra nelas
+                    links_sentencas = []
+                    # Varre as fases de trás pra frente para pegar todas as decisões/sentenças
+                    for fase in reversed(lista_fases):
+                        mov = str(fase['movimento']).upper()
+                        if "SENTENÇA" in mov or "DECISÃO" in mov:
+                            if fase['documentos']:
+                                for doc in fase['documentos']:
+                                    links_sentencas.append(doc['url'])
+                                # Removido o 'break' para não parar na primeira; coleta TODAS!
                     
+                    possui_tese = False
+                    link_principal = None
+                    texto_sentenca = ""
+                    texto_processo_capa = " ".join([str(f["movimento"]) for f in lista_fases]).upper()
+
+                    if links_sentencas:
+                        print(f"-> Acessando {len(links_sentencas)} link(s) da Sentença/Decisão para ler os textos originais...")
+                        aba_processo = navegador.current_window_handle
+                        navegador.switch_to.new_window('tab')
+                        
+                        termos_tese = ["ATIVIDADE CONCOMITANTE", "ATIVIDADES CONCOMITANTES", "CONCOMITANTE", "CONCOMITANTES", "MULTIPLICADOR", "CONCOMITÂNCIA"]
+                        
+                        for link in links_sentencas:
+                            navegador.get(link)
+                            time.sleep(random.uniform(1.0, 1.5))
+                            try:
+                                from selenium.webdriver.common.by import By
+                                texto_extraido = str(navegador.find_element(By.TAG_NAME, "body").text).upper()
+                                
+                                # E-proc costuma esconder o texto do documento dentro de um iframe
+                                iframes = navegador.find_elements(By.TAG_NAME, "iframe")
+                                for iframe in iframes:
+                                    navegador.switch_to.frame(iframe)
+                                    texto_extraido += " " + str(navegador.find_element(By.TAG_NAME, "body").text).upper()
+                                    navegador.switch_to.default_content()
+                                
+                                print(f"       -> Lidos {len(texto_extraido)} caracteres do documento.")
+                                texto_sentenca += " " + texto_extraido
+                                
+                                # Valida se ESTE documento atual tem a tese. Se sim, marca ele como o documento correto.
+                                if not possui_tese:
+                                    if any(termo.upper() in texto_extraido for termo in termos_tese):
+                                        possui_tese = True
+                                        link_principal = link
+                                        print(f"       -> Tese encontrada neste documento! Interrompendo busca em outras sentenças.")
+                                        break
+                            except Exception as ex:
+                                print(f"       -> Erro ao ler documento: {ex}")
+                                
+                        navegador.close()
+                        navegador.switch_to.window(aba_processo)
+                        
+                        if link_principal is None and links_sentencas:
+                            link_principal = links_sentencas[0] # Fallback pro primeiro documento se nenhum tiver a tese
+                    else:
+                        print("-> Nenhuma sentença ou decisão com link encontrada nas fases.")
+                        link_principal = None
+
                     if not possui_tese:
-                        print("-> Cor Planilha: BRANCO (Motivo: Ação contra o INSS, mas trata de outra tese jurídica)")
+                        print("-> Cor Planilha: BRANCO (Motivo: Ação contra o INSS, mas NÃO encontrou a tese na sentença/decisão)")
                         if atualizar_status_callback:
-                            atualizar_status_callback(indice, "BRANCO")
-                        db.inserir_processo(cliente_id, numero_processo, link_processo=proc['url'], polo_passivo=polo_passivo, tem_tese_concomitante=False, status_merito="Descartado")
+                            atualizar_status_callback(indice, "BRANCO - Outra tese jurídica")
+                        db.inserir_processo(cliente_id, numero_processo, link_processo=proc['url'], polo_passivo=polo_passivo, tem_tese_concomitante=False, status_merito="Descartado", link_sentenca=link_principal, assunto=assunto_processo)
                         db.inserir_oportunidade(cliente_id, "BRANCO", "Ação contra o INSS, mas trata de outra tese jurídica", "Descartado")
                         continue
                         
@@ -249,30 +306,36 @@ class BotTRF4:
 
                     status_rpa = "BRANCO"
                     motivo = ""
-                    fase = "Nova Oportunidade"
+                    fase_oportunidade = "Nova Oportunidade"
                     status_merito = "NÃO IDENTIFICADO"
 
-                    if any(termo in texto_processo for termo in termos_sem_merito):
+                    # Checa o mérito tanto na capa do processo (movimentos) quanto no texto da sentença
+                    texto_merito = texto_processo_capa + " " + texto_sentenca
+
+                    if any(termo in texto_merito for termo in termos_sem_merito):
                         print("-> Cor Planilha: AMARELO (Motivo: Tese encontrada, mas extinta SEM resolução de mérito. Viável ajuizar novamente)")
-                        status_rpa = "AMARELO"
+                        status_rpa = "AMARELO - Tese localizada SEM resolução de mérito"
                         motivo = "Tese encontrada, mas extinta SEM resolução de mérito. Viável ajuizar novamente."
                         status_merito = "SEM RESOLUÇÃO"
-                    elif any(termo in texto_processo for termo in termos_com_merito):
+                    elif any(termo in texto_merito for termo in termos_com_merito):
                         print("-> Cor Planilha: CINZA (Motivo: Descartado. Já possui sentença definitiva COM resolução de mérito)")
-                        status_rpa = "CINZA"
+                        status_rpa = "CINZA - Descartado (Com resolução de mérito)"
                         motivo = "Descartado. Já possui sentença definitiva COM resolução de mérito."
                         status_merito = "COM RESOLUÇÃO"
-                        fase = "Descartado"
+                        fase_oportunidade = "Descartado"
                     else:
                         print("-> Cor Planilha: BRANCO / ALERTA (Motivo: Tese localizada, mas a estrutura da decisão exige revisão manual)")
-                        status_rpa = "BRANCO"
+                        status_rpa = "BRANCO - Tese localizada (Exige revisão manual)"
                         motivo = "Tese localizada, mas a estrutura da decisão exige revisão manual."
-                        fase = "Revisão Manual"
+                        fase_oportunidade = "Revisão Manual"
+
+                    # Monta o texto de status enriquecido para a planilha
+                    status_rpa_completo = f"{status_rpa} | Processo: {numero_processo} | Assunto: {assunto_processo}"
 
                     if atualizar_status_callback:
-                        atualizar_status_callback(indice, status_rpa)
-                    db.inserir_processo(cliente_id, numero_processo, link_processo=proc['url'], polo_passivo=polo_passivo, tem_tese_concomitante=True, status_merito=status_merito)
-                    db.inserir_oportunidade(cliente_id, status_rpa, motivo, fase)
+                        atualizar_status_callback(indice, status_rpa_completo)
+                    db.inserir_processo(cliente_id, numero_processo, link_processo=proc['url'], polo_passivo=polo_passivo, tem_tese_concomitante=True, status_merito=status_merito, link_sentenca=link_principal, assunto=assunto_processo)
+                    db.inserir_oportunidade(cliente_id, status_rpa, motivo, fase_oportunidade)
 
                     time.sleep(random.uniform(1.0, 2.0))
                     

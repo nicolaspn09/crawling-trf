@@ -79,6 +79,7 @@ class OrquestradorDrive:
                 file_stream.seek(0)
                 wb = openpyxl.load_workbook(file_stream)
                 ws = wb.active
+            
             def callback_status(indice, status):
                 if planilha_api:
                     try:
