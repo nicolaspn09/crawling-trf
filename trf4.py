@@ -64,8 +64,8 @@ class BotTRF4:
                 # Valida o CPF antes de prosseguir
                 if not self._validar_cpf(cpf):
                     print(f"[AVISO] CPF inválido, nome ou em branco: '{cpf}'")
-                    if atualizar_status_callback:
-                        atualizar_status_callback(indice, "CPF INVÁLIDO")
+                    # if atualizar_status_callback:
+                    #     atualizar_status_callback(indice, "CPF INVÁLIDO")
                     # Como não é um CPF válido, pulamos para a próxima linha SEM sujar o Banco de Dados
                     continue
 
@@ -113,16 +113,17 @@ class BotTRF4:
                 # Trata possível erro ao buscar o CPF 
                 erro_site = acoes._obter_elemento(elemento="divInfraBarraLocalizacao", tipo_dado="id", timer=3)
                 
-                # Verifica Cloudflare
-                cloudflare = acoes._obter_elemento(elemento="/html/body/div[1]/section/div[7]/div/form/input[1]", tipo_dado="xpath", timer=5)
-                if cloudflare:
-                    acoes.aguardar_sucesso_cloudflare(timeout_captcha=30)
-                    time.sleep(random.uniform(0.5, 1.2))
-                    try:
-                        acoes.clicar(elemento="/html/body/div[1]/section/div[7]/div/form/input[1]", tipo_dado="xpath", timer=5)
-                        time.sleep(random.uniform(0.8, 1.5))
-                    except Exception:
-                        pass
+                if not tem_alerta and not erro_site:
+                    # Verifica Cloudflare
+                    cloudflare = acoes._obter_elemento(elemento="/html/body/div[1]/section/div[7]/div/form/input[1]", tipo_dado="xpath", timer=5)
+                    if cloudflare:
+                        acoes.aguardar_sucesso_cloudflare(timeout_captcha=30)
+                        time.sleep(random.uniform(0.5, 1.2))
+                        try:
+                            acoes.clicar(elemento="/html/body/div[1]/section/div[7]/div/form/input[1]", tipo_dado="xpath", timer=5)
+                            time.sleep(random.uniform(0.8, 1.5))
+                        except Exception:
+                            pass
                 
                 lista_processos = []
                 if not tem_alerta and not erro_site:
@@ -135,25 +136,53 @@ class BotTRF4:
                     
                     tem_alerta, texto_alerta = self._tratar_alerta_popup(navegador, timeout=3)
                     
-                    cloudflare = acoes._obter_elemento(elemento="/html/body/div[1]/section/div[7]/div/form/input[1]", tipo_dado="xpath", timer=5)
-                    if cloudflare:
-                        acoes.aguardar_sucesso_cloudflare(timeout_captcha=30)
-                        time.sleep(random.uniform(0.5, 1.2))
-                        try:
-                            acoes.clicar(elemento="/html/body/div[1]/section/div[7]/div/form/input[1]", tipo_dado="xpath", timer=5)
-                            time.sleep(random.uniform(0.8, 1.5))
-                        except Exception:
-                            pass
+                    if not tem_alerta and not erro_site:
+                        cloudflare = acoes._obter_elemento(elemento="/html/body/div[1]/section/div[7]/div/form/input[1]", tipo_dado="xpath", timer=5)
+                        if cloudflare:
+                            acoes.aguardar_sucesso_cloudflare(timeout_captcha=30)
+                            time.sleep(random.uniform(0.5, 1.2))
+                            try:
+                                acoes.clicar(elemento="/html/body/div[1]/section/div[7]/div/form/input[1]", tipo_dado="xpath", timer=5)
+                                time.sleep(random.uniform(0.8, 1.5))
+                            except Exception:
+                                pass
                             
                     if not tem_alerta:
-                        lista_processos_nome = acoes.obter_links_da_lista()
+                        lista_processos_nome = []
+                        
+                        from selenium.webdriver.common.by import By
+                        links_conteudo = navegador.find_elements(By.XPATH, "//div[@id='divConteudo']/a")
+                        is_homonimos = any("CPF/CNPJ:" in l.text for l in links_conteudo)
+                        
+                        if is_homonimos:
+                            cpf_4_digitos = cpf_limpo[:4]
+                            nome_buscado = nome.upper().strip()
+                            link_processos_parte = None
+                            
+                            for hm in links_conteudo:
+                                texto_hm = hm.text.upper()
+                                if "CPF/CNPJ:" in texto_hm:
+                                    # Valida Nome exato e os 4 primeiros dígitos do CPF mascarado
+                                    if nome_buscado in texto_hm and cpf_4_digitos in texto_hm:
+                                        link_processos_parte = hm.get_attribute("href")
+                                        print(f"       -> Homônimo validado com sucesso: {texto_hm}")
+                                        break
+                                        
+                            if link_processos_parte:
+                                navegador.get(link_processos_parte)
+                                time.sleep(random.uniform(0.5, 1.0))
+                                lista_processos_nome = acoes.obter_links_da_lista()
+                            else:
+                                print(f"       -> Nome {nome}: Nenhum homônimo correspondente (Nome exato + 4 digitos CPF).")
+                        else:
+                            # Se não for a tela de homônimos, pega a lista direto
+                            lista_processos_nome = acoes.obter_links_da_lista()
+                            
                         if lista_processos_nome:
-                            # Se encontrou processos pelo nome, podemos prosseguir com a análise deles, 
-                            # ou verificar se o CPF dentro do processo bate. 
-                            # Como a instrução diz "se o cpf bate... senão não precisa analisar", 
-                            # vamos usar os processos encontrados.
+                            print(f"       -> Dupla checagem encontrou processos pelo nome!")
                             lista_processos = lista_processos_nome
-                            print(f"[AVISO] Processos encontrados através do NOME. O bot validará o CPF internamente se necessário.")
+                        else:
+                            print(f"       -> Nome {nome}: Nenhum processo encontrado na dupla checagem.")
 
                 if tem_alerta and not lista_processos:
                     print(f"[RESULTADO FINAL] CPF {cpf} e NOME {nome}: Não foi encontrado. (Alerta: {texto_alerta})")
