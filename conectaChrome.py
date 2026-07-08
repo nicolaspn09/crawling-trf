@@ -32,8 +32,8 @@ class ChromeStealthManager:
         # Desativa detecções comuns de automação via flags do Chrome
         options.add_argument("--disable-blink-features=AutomationControlled")
 
-        # Inicializa o driver oculto (ele gerencia o download do próprio driver compatível)
-        navegador = uc.Chrome(options=options, version_main=148) # Ajuste para a versão principal do seu Chrome se necessário
+        # Inicializa o driver oculto (ele detecta a versão automaticamente se não passarmos version_main)
+        navegador = uc.Chrome(options=options)
 
         navegador.maximize_window()
 

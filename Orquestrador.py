@@ -1,6 +1,8 @@
 import os
 import pandas as pd
+import openpyxl
 from GoogleDrive import GoogleDriveManager
+from GoogleSheets import GoogleSheets
 
 class OrquestradorDrive:
     def __init__(self, diretorio_json, map_estados_bots):
@@ -62,15 +64,60 @@ class OrquestradorDrive:
             df = df_ou_erro.fillna("")
             lista_dados = df.values.tolist()
             
+            # Inicializa a API do Sheets se for uma planilha do Google
+            is_google_sheet = (arquivo['mimeType'] == 'application/vnd.google-apps.spreadsheet')
+            is_excel = arquivo['name'].endswith('.xlsx')
+            
+            planilha_api = None
+            wb = None
+            ws = None
+            
+            if is_google_sheet:
+                # Usa aba com nome "Geral" (padrão) ou pode adaptar se a aba tiver outro nome
+                planilha_api = GoogleSheets(arquivo['id'], "Geral", self.drive.diretorio_json)
+            elif is_excel:
+                file_stream.seek(0)
+                wb = openpyxl.load_workbook(file_stream)
+                ws = wb.active
+            def callback_status(indice, status):
+                if planilha_api:
+                    try:
+                        planilha_api.atualizar_celula(f"BT{indice}", status)
+                        planilha_api.pintar_linha(indice, status)
+                    except Exception as e:
+                        # Fallback caso a aba não se chame "Geral"
+                        try:
+                            # Tenta sem o nome da aba (atualiza a primeira visível)
+                            planilha_api.range_dados = ""
+                            planilha_api.atualizar_celula(f"BT{indice}", status)
+                            planilha_api.pintar_linha(indice, status)
+                        except Exception as e2:
+                            print(f"         [AVISO] Não foi possível pintar a linha {indice} no Google Sheets. Erro: {e2}")
+                else:
+                    if ws:
+                        try:
+                            ws[f"BT{indice}"] = status
+                        except Exception:
+                            pass
+                    print(f"         Status (Offline/Excel): Linha {indice} -> {status}")
+
             # Executa o bot com Single Responsibility
             # O bot processa e não precisa saber de onde vieram os dados
             try:
-                processador_bot(lista_dados)
+                processador_bot(lista_dados, atualizar_status_callback=callback_status)
                 print(f"         Bot finalizou o processamento de {arquivo['name']}.")
             except Exception as e:
                 print(f"         [ERRO] Falha ao rodar o bot para {arquivo['name']}: {str(e)}")
                 continue
                 
-            print(f"         Movendo {arquivo['name']} para ANALISADO...")
-            self.drive.mover_arquivo(arquivo['id'], pasta_uf['id'], analisado_folder_id)
-            print("         Movido com sucesso!")
+            if wb:
+                temp_file = f"temp_{arquivo['name']}"
+                wb.save(temp_file)
+                print(f"         Fazendo upload das alterações no Excel para o Google Drive...")
+                self.drive.atualizar_arquivo_local(arquivo['id'], temp_file)
+                if os.path.exists(temp_file):
+                    os.remove(temp_file)
+
+            # print(f"         Movendo {arquivo['name']} para ANALISADO...")
+            # self.drive.mover_arquivo(arquivo['id'], pasta_uf['id'], analisado_folder_id)
+            # print("         Movido com sucesso!")

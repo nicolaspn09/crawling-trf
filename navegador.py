@@ -29,7 +29,9 @@ class NavegadorPy:
 
     def clicar(self, tipo_dado, elemento, timer=60):
         elemento_pagina = self._obter_elemento(tipo_dado, elemento, timer)
-        
+        if not elemento_pagina:
+            return False
+            
         # Move o mouse simulado até o elemento com um pequeno offset randômico para mimetizar humanos
         actions = ActionChains(self.navegador)
         actions.move_to_element(elemento_pagina).perform()
@@ -37,29 +39,39 @@ class NavegadorPy:
         
         # Executa o clique nativo via driver (Gera evento isTrusted = true)
         elemento_pagina.click()
+        return True
 
     def obtem_informacao(self, tipo_dado, elemento, timer=60):
         elemento_pagina = self._obter_elemento(tipo_dado, elemento, timer)
+        if not elemento_pagina: return ""
         return elemento_pagina.text
 
     def obter_informacao_atributo(self, tipo_dado, elemento, atributo, timer=60):
         elemento_pagina = self._obter_elemento(tipo_dado, elemento, timer)
+        if not elemento_pagina: return ""
         return elemento_pagina.get_attribute(atributo)
 
-    def combobox(self, tipo_dado, elemento, index, timer=60):
-        combobox = self._obter_elemento(tipo_dado, elemento, timer)
-        
+    def combobox(self, tipo_dado, elemento, index=None, texto=None, timer=60):
+        cb = self._obter_elemento(tipo_dado, elemento, timer)
+        if not cb:
+            raise Exception(f"Combobox não encontrado: {elemento}")
+            
         # Move até o combobox antes de interagir
         actions = ActionChains(self.navegador)
-        actions.move_to_element(combobox).perform()
+        actions.move_to_element(cb).perform()
         time.sleep(random.uniform(0.2, 0.5))
         
-        select = Select(combobox)
-        select.select_by_index(index)
+        select = Select(cb)
+        if texto:
+            select.select_by_visible_text(texto)
+        elif index is not None:
+            select.select_by_index(index)
 
     def adicionar_informacao(self, tipo_dado, elemento, valor, timer=60):
         elemento_pagina = self._obter_elemento(tipo_dado, elemento, timer)
-        
+        if not elemento_pagina:
+            raise Exception(f"Elemento de input não encontrado: {elemento}")
+            
         # Foca no campo de forma nativa
         actions = ActionChains(self.navegador)
         actions.move_to_element(elemento_pagina).click().perform()
@@ -69,10 +81,9 @@ class NavegadorPy:
         elemento_pagina.clear()
         time.sleep(0.1)
         
-        # Digitação humanizada: insere caractere por caractere com intervalo variável
-        for caractere in valor:
-            elemento_pagina.send_keys(caractere)
-            time.sleep(random.uniform(0.05, 0.15))
+        # Digitação otimizada: envio direto do bloco de texto para acelerar a execução
+        elemento_pagina.send_keys(valor)
+        time.sleep(random.uniform(0.1, 0.2))
 
     def aguardar_sucesso_cloudflare(self, timeout_captcha=30):
         """
@@ -134,8 +145,8 @@ class NavegadorPy:
         # 3. Navega na URL do processo dentro da nova aba isolada
         self.navegador.get(url_processo)
         
-        # Tempo de segurança para o carregamento
-        time.sleep(random.uniform(2.0, 3.5)) 
+        # Tempo otimizado para o carregamento
+        time.sleep(random.uniform(1.0, 1.5)) 
         
         # 4. Coleta de forma dinâmica todos os elementos strong no container de detalhes
         dados_principais = {}
@@ -188,7 +199,7 @@ class NavegadorPy:
                 print(f"[Aviso] Link 'Clique aqui para mostrar todas as fases' não localizado: {ex}")
 
         # Aguarda um pequeno momento para o carregamento das fases na tela
-        time.sleep(random.uniform(1.0, 2.0))
+        time.sleep(random.uniform(0.5, 1.0))
 
         # 6. Aguarda e parseia a tabela de fases (/html/body/div[1]/section/div[7]/div/table)
         lista_fases = []

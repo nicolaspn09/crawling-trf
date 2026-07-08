@@ -22,6 +22,9 @@ class BotTRF4:
 
     def _acessa_site(self, navegador):
         url = AcessaSite().site("sc")
+        # Força o recarregamento total da página saindo dela e voltando
+        navegador.get("about:blank")
+        time.sleep(0.1)
         navegador.get(url)
 
     def _validar_cpf(self, cpf):
@@ -49,9 +52,8 @@ class BotTRF4:
         db = Database()
         navegador, firefox_pids = self._inicia_navegador()
         
-        try:
-            for indice, linha in enumerate(lista_dados, start=2):
-                
+        for indice, linha in enumerate(lista_dados, start=2):
+            try:
                 # Extrai os dados básicos com segurança (caso a linha não tenha todas as colunas)
                 cpf = linha[0].strip() if len(linha) > 0 else ""
                 nome = linha[2].strip() if len(linha) > 2 else ""
@@ -73,43 +75,44 @@ class BotTRF4:
                 # Obtém ou cria o cliente no banco para termos o cliente_id VERDADEIRO (ID numérico interno do Postgres)
                 cliente_id = db.obter_ou_criar_cliente(cpf=cpf_limpo, nome=nome, telefone=telefone_completo)
                 
+                def fazer_pesquisa_eproc(valor_busca, indice_origem=3):
+                    self._acessa_site(navegador=navegador)
+                    time.sleep(random.uniform(0.5, 1.0))
+                    
+                    acoes = NavegadorPy(navegador=navegador)
+                    
+                    acoes.combobox(elemento="selForma", tipo_dado="id", timer=20, index=indice_origem)
+                    time.sleep(random.uniform(0.2, 0.5))
+                    
+                    try:
+                        acoes.combobox(elemento="selOrigem", tipo_dado="id", timer=5, index=2)
+                        time.sleep(random.uniform(0.2, 0.4))
+                    except Exception:
+                        pass # O campo selOrigem não existe ou fica oculto quando a busca é pelo Nome
+                    
+                    acoes.adicionar_informacao(elemento="txtValor", tipo_dado="id", valor=valor_busca, timer=20)
+                    time.sleep(random.uniform(0.1, 0.3))
+                    
+                    try:
+                        acoes.clicar(elemento="chkMostrarBaixados", tipo_dado="id", timer=5)
+                        time.sleep(random.uniform(0.1, 0.3))
+                    except Exception:
+                        pass
+                    
+                    acoes.clicar(elemento="botaoEnviar", tipo_dado="id", timer=20)
+                    time.sleep(random.uniform(0.5, 1.0))
+                    
+                    return acoes
+
                 print(f"\n[CONSULTA] Iniciando busca para o CPF: {cpf}")
-                self._acessa_site(navegador=navegador)
-                time.sleep(random.uniform(1.0, 1.8))
-                
-                acoes = NavegadorPy(navegador=navegador)
-                
-                acoes.combobox(elemento="selForma", tipo_dado="id", timer=20, index=3)
-                time.sleep(random.uniform(0.6, 1.2))
-                
-                acoes.combobox(elemento="selOrigem", tipo_dado="id", timer=20, index=2)
-                time.sleep(random.uniform(0.5, 1.0))
-                
-                acoes.adicionar_informacao(elemento="txtValor", tipo_dado="id", valor=cpf, timer=20)
-                time.sleep(random.uniform(0.2, 0.5))
-                
-                acoes.clicar(elemento="chkMostrarBaixados", tipo_dado="id", timer=20)
-                time.sleep(random.uniform(0.8, 1.5))
-                
-                acoes.clicar(elemento="botaoEnviar", tipo_dado="id", timer=20)
-                time.sleep(random.uniform(0.8, 1.5))
+                acoes = fazer_pesquisa_eproc(cpf, indice_origem=3)
 
                 # Trata possíveis popups (ex: Nenhum processo encontrado) nativos do site
                 tem_alerta, texto_alerta = self._tratar_alerta_popup(navegador, timeout=3)
-                if tem_alerta:
-                    print(f"[RESULTADO] CPF {cpf}: Não foi encontrado. (Alerta: {texto_alerta})")
-                    if atualizar_status_callback:
-                        atualizar_status_callback(indice, "BRANCO - SEM PROCESSO")
-                    db.inserir_oportunidade(cliente_id, "BRANCO - SEM PROCESSO", f"Alerta do tribunal: {texto_alerta}", "Descartado")
-                    continue
-
+                
                 # Trata possível erro ao buscar o CPF 
                 erro_site = acoes._obter_elemento(elemento="divInfraBarraLocalizacao", tipo_dado="id", timer=3)
-                if erro_site:
-                    print("Site com erro! Aguardando para iniciar nova tentativa de extração")
-                    time.sleep(random.uniform(5.0, 10.0))
-                    continue
-
+                
                 # Verifica Cloudflare
                 cloudflare = acoes._obter_elemento(elemento="/html/body/div[1]/section/div[7]/div/form/input[1]", tipo_dado="xpath", timer=5)
                 if cloudflare:
@@ -121,21 +124,61 @@ class BotTRF4:
                     except Exception:
                         pass
                 
-                print("[INFO] Coletando lista de processos carregados...")
-                lista_processos = acoes.obter_links_da_lista()
-                
-                if not lista_processos:
-                    print(f"[AVISO] Nenhum processo foi encontrado para o CPF {cpf}.")
+                lista_processos = []
+                if not tem_alerta and not erro_site:
+                    lista_processos = acoes.obter_links_da_lista()
+
+                # DUPLA CHECAGEM: Se não encontrou pelo CPF, tenta pelo Nome
+                if tem_alerta or not lista_processos:
+                    print(f"[RESULTADO CPF] CPF {cpf}: Nada Consta. Tentando dupla checagem pelo NOME: {nome}")
+                    acoes = fazer_pesquisa_eproc(nome, indice_origem=2)
+                    
+                    tem_alerta, texto_alerta = self._tratar_alerta_popup(navegador, timeout=3)
+                    
+                    cloudflare = acoes._obter_elemento(elemento="/html/body/div[1]/section/div[7]/div/form/input[1]", tipo_dado="xpath", timer=5)
+                    if cloudflare:
+                        acoes.aguardar_sucesso_cloudflare(timeout_captcha=30)
+                        time.sleep(random.uniform(0.5, 1.2))
+                        try:
+                            acoes.clicar(elemento="/html/body/div[1]/section/div[7]/div/form/input[1]", tipo_dado="xpath", timer=5)
+                            time.sleep(random.uniform(0.8, 1.5))
+                        except Exception:
+                            pass
+                            
+                    if not tem_alerta:
+                        lista_processos_nome = acoes.obter_links_da_lista()
+                        if lista_processos_nome:
+                            # Se encontrou processos pelo nome, podemos prosseguir com a análise deles, 
+                            # ou verificar se o CPF dentro do processo bate. 
+                            # Como a instrução diz "se o cpf bate... senão não precisa analisar", 
+                            # vamos usar os processos encontrados.
+                            lista_processos = lista_processos_nome
+                            print(f"[AVISO] Processos encontrados através do NOME. O bot validará o CPF internamente se necessário.")
+
+                if tem_alerta and not lista_processos:
+                    print(f"[RESULTADO FINAL] CPF {cpf} e NOME {nome}: Não foi encontrado. (Alerta: {texto_alerta})")
                     if atualizar_status_callback:
-                        atualizar_status_callback(indice, "BRANCO - SEM PROCESSO")
-                    db.inserir_oportunidade(cliente_id, "BRANCO - SEM PROCESSO", "Lista de processos vazia", "Descartado")
+                        atualizar_status_callback(indice, "BRANCO - NADA CONSTA")
+                    db.inserir_oportunidade(cliente_id, "BRANCO - NADA CONSTA", f"Alerta do tribunal duplo: {texto_alerta}", "Descartado")
+                    continue
+                    
+                if erro_site and not lista_processos:
+                    print("Site com erro na pesquisa de CPF e Nome! Aguardando para nova tentativa...")
+                    time.sleep(random.uniform(5.0, 10.0))
                     continue
 
-                # Limitador do escopo da POC: Executa o ciclo completo nos 2 primeiros da lista
-                processos_poc = lista_processos[:2]
-                print(f"[INFO] Iniciando varredura da POC em {len(processos_poc)} processos principais.")
+                if not lista_processos:
+                    print(f"[AVISO FINAL] Nenhum processo foi encontrado para o CPF/NOME {cpf}.")
+                    if atualizar_status_callback:
+                        atualizar_status_callback(indice, "BRANCO - NADA CONSTA")
+                    db.inserir_oportunidade(cliente_id, "BRANCO - NADA CONSTA", "Lista de processos vazia", "Descartado")
+                    continue
 
-                for idx, proc in enumerate(processos_poc, start=1):
+                # Removemos o limitador da POC, varrendo TODOS os processos.
+                processos = lista_processos
+                print(f"[INFO] Iniciando varredura em {len(processos)} processos encontrados.")
+
+                for idx, proc in enumerate(processos, start=1):
                     numero_processo = proc['titulo']
                     print(f"\n[CONFERÊNCIA {idx}] Acessando link: {numero_processo}")
                     
@@ -203,14 +246,19 @@ class BotTRF4:
                     db.inserir_oportunidade(cliente_id, status_rpa, motivo, fase)
 
                     time.sleep(random.uniform(1.0, 2.0))
+                    
+                    # Como a tese FOI localizada (seja amarelo, cinza ou branco alerta),
+                    # quebramos o loop para não processar os demais processos deste CPF!
+                    print(f"       -> Tese localizada! Parando de analisar processos para o CPF {cpf}.")
+                    break
 
-        except Exception as e:
-            print(e)
+            except Exception as e:
+                print(f"[ERRO CPF] Falha no índice {indice} (Linha {indice}): {e}")
+                continue
 
-        finally:
-            print("\n[POC STATUS] Execução finalizada. Banco atualizado.")
-            db.fechar_conexao()
-            navegador.quit()
+        print("\n[POC STATUS] Execução finalizada. Banco atualizado.")
+        db.fechar_conexao()
+        navegador.quit()
 
 if __name__ == "__main__":
     BASE_DIR = Path(__file__).resolve().parent

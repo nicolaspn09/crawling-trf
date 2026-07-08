@@ -4,7 +4,7 @@ from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.http import MediaIoBaseDownload
+from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload
 import pandas as pd
 
 class GoogleDriveManager:
@@ -89,6 +89,17 @@ class GoogleDriveManager:
             fields='id, parents'
         ).execute()
         return file
+
+    def atualizar_arquivo_local(self, file_id, caminho_local):
+        """
+        Sobrescreve o conteúdo do arquivo no Drive com o arquivo local.
+        """
+        media = MediaFileUpload(caminho_local, resumable=True)
+        updated_file = self.service.files().update(
+            fileId=file_id,
+            media_body=media
+        ).execute()
+        return updated_file
 
     def baixar_arquivo(self, file_id, file_name, mime_type):
         """

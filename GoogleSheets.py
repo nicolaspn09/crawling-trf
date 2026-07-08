@@ -138,9 +138,82 @@ class GoogleSheets:
             "values": [[valor]]
         }
 
+        range_formatado = f"{self.range_dados}!{celula}" if self.range_dados else celula
+
         service.spreadsheets().values().update(
             spreadsheetId=self.id_planilha,
-            range=f"{self.range_dados}!{celula}",
+            range=range_formatado,
             valueInputOption="USER_ENTERED",
             body=body
         ).execute()
+
+    def pintar_linha(self, linha_index, cor_nome):
+        """
+        Pinta o fundo das células da linha especificada (ex: AMARELO, CINZA, BRANCO).
+        linha_index é 1-based (linha 2 no sheets = 2).
+        """
+        SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+        creds = None
+        if os.path.exists(self.arquivo_token):
+            creds = Credentials.from_authorized_user_file(self.arquivo_token, SCOPES)
+            
+        if not creds or not creds.valid:
+            return # Falha na credencial silenciosa
+
+        service = build("sheets", "v4", credentials=creds)
+
+        # Mapeamento de cores RGB (escala 0 a 1)
+        cores = {
+            "AMARELO": {"red": 1.0, "green": 1.0, "blue": 0.0},
+            "CINZA": {"red": 0.8, "green": 0.8, "blue": 0.8},
+            "BRANCO": {"red": 1.0, "green": 1.0, "blue": 1.0}
+        }
+        
+        # Se for branco com alerta, usa um laranjinha claro ou ignora
+        if "BRANCO / ALERTA" in cor_nome:
+            cor_rgb = {"red": 1.0, "green": 0.9, "blue": 0.8}
+        else:
+            cor_rgb = cores.get(cor_nome.split(" -")[0], cores["BRANCO"])
+
+        # O índice da linha no request é 0-based
+        row_index = linha_index - 1
+        
+        # Vamos descobrir o sheetId (gid) pela leitura básica, ou assumir 0 (primeira aba)
+        try:
+            sheet_metadata = service.spreadsheets().get(spreadsheetId=self.id_planilha).execute()
+            # Pega o ID da primeira aba ou da aba que corresponde a self.range_dados se for o nome
+            sheet_id = sheet_metadata.get('sheets', [])[0].get('properties', {}).get('sheetId', 0)
+        except:
+            sheet_id = 0
+
+        requests = [
+            {
+                "repeatCell": {
+                    "range": {
+                        "sheetId": sheet_id,
+                        "startRowIndex": row_index,
+                        "endRowIndex": row_index + 1,
+                        "startColumnIndex": 0,
+                        "endColumnIndex": 72 # Pinta até a coluna BT
+                    },
+                    "cell": {
+                        "userEnteredFormat": {
+                            "backgroundColor": cor_rgb
+                        }
+                    },
+                    "fields": "userEnteredFormat.backgroundColor"
+                }
+            }
+        ]
+
+        body = {
+            "requests": requests
+        }
+
+        try:
+            service.spreadsheets().batchUpdate(
+                spreadsheetId=self.id_planilha,
+                body=body
+            ).execute()
+        except Exception as e:
+            print(f"Erro ao pintar planilha: {e}")
