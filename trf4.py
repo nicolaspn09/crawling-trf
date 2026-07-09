@@ -57,8 +57,8 @@ class BotTRF4:
                 # Extrai os dados básicos com segurança (caso a linha não tenha todas as colunas)
                 cpf = linha[0].strip() if len(linha) > 0 else ""
 
-                # if "89254759953" not in str(cpf).replace("-", "").replace(".", ""):
-                #     continue
+                if "47556722953" not in str(cpf).replace("-", "").replace(".", "") or "44827229953" not in str(cpf).replace("-", "").replace(".", ""):
+                    continue
                 
                 nome = linha[2].strip() if len(linha) > 2 else ""
                 ddd = str(linha[13]).strip() if len(linha) > 13 else ""
@@ -209,8 +209,12 @@ class BotTRF4:
                 print(f"[INFO] Iniciando varredura em {len(processos)} processos encontrados.")
 
                 for idx, proc in enumerate(processos, start=1):
-                    numero_processo = proc['titulo']
-                    print(f"\n[CONFERÊNCIA {idx}] Acessando link: {numero_processo}")
+                    numero_processo_bruto = proc['titulo']
+                    import re
+                    match_num = re.search(r'\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}', numero_processo_bruto)
+                    numero_processo_limpo = match_num.group(0) if match_num else numero_processo_bruto
+
+                    print(f"\n[CONFERÊNCIA {idx}] Acessando link: {numero_processo_bruto}")
                     
                     # Nova versão do analisar_conteudo_processo que retorna dados tabelados
                     dados_principais, lista_fases = acoes.analisar_conteudo_processo(proc['url'])
@@ -220,7 +224,10 @@ class BotTRF4:
                     
                     # VALIDAÇÃO 1: O polo passivo obrigatoriamente precisa ser o INSS
                     polo_passivo = dados_principais.get('Réu', 'Desconhecido')
-                    assunto_processo = dados_principais.get('Assuntos', dados_principais.get('Assunto', 'Não informado'))
+                    assunto_processo = dados_principais.get('Assuntos', dados_principais.get('Assunto', ''))
+                    if not assunto_processo.strip():
+                        assunto_processo = "Não informado"
+                        
                     is_contra_inss = ("INSS" in texto_processo) or ("INSTITUTO NACIONAL DO SEGURO SOCIAL" in texto_processo)
                     if is_contra_inss:
                         polo_passivo = "INSS"
@@ -228,8 +235,8 @@ class BotTRF4:
                     if not is_contra_inss:
                         print("-> Cor Planilha: BRANCO (Motivo: Não é uma ação movida contra o INSS)")
                         if atualizar_status_callback:
-                            atualizar_status_callback(indice, "BRANCO - Não movida contra o INSS", numero_processo, assunto_processo)
-                        db.inserir_processo(cliente_id, numero_processo, link_processo=proc['url'], polo_passivo=polo_passivo, tem_tese_concomitante=False, status_merito="Descartado", assunto=assunto_processo)
+                            atualizar_status_callback(indice, "BRANCO - Não movida contra o INSS", numero_processo_limpo, assunto_processo)
+                        db.inserir_processo(cliente_id, numero_processo_limpo, link_processo=proc['url'], polo_passivo=polo_passivo, tem_tese_concomitante=False, status_merito="Descartado", assunto=assunto_processo)
                         db.inserir_oportunidade(cliente_id, "BRANCO", "Não é ação contra INSS", "Descartado")
                         continue
                         
@@ -295,8 +302,8 @@ class BotTRF4:
                     if not possui_tese:
                         print("-> Cor Planilha: BRANCO (Motivo: Ação contra o INSS, mas NÃO encontrou a tese na sentença/decisão)")
                         if atualizar_status_callback:
-                            atualizar_status_callback(indice, "BRANCO - Outra tese jurídica", numero_processo, assunto_processo)
-                        db.inserir_processo(cliente_id, numero_processo, link_processo=proc['url'], polo_passivo=polo_passivo, tem_tese_concomitante=False, status_merito="Descartado", link_sentenca=link_principal, assunto=assunto_processo)
+                            atualizar_status_callback(indice, "BRANCO - Outra tese jurídica", numero_processo_limpo, assunto_processo)
+                        db.inserir_processo(cliente_id, numero_processo_limpo, link_processo=proc['url'], polo_passivo=polo_passivo, tem_tese_concomitante=False, status_merito="Descartado", link_sentenca=link_principal, assunto=assunto_processo)
                         db.inserir_oportunidade(cliente_id, "BRANCO", "Ação contra o INSS, mas trata de outra tese jurídica", "Descartado")
                         continue
                         
@@ -330,8 +337,8 @@ class BotTRF4:
                         fase_oportunidade = "Revisão Manual"
 
                     if atualizar_status_callback:
-                        atualizar_status_callback(indice, status_rpa, numero_processo, assunto_processo)
-                    db.inserir_processo(cliente_id, numero_processo, link_processo=proc['url'], polo_passivo=polo_passivo, tem_tese_concomitante=True, status_merito=status_merito, link_sentenca=link_principal, assunto=assunto_processo)
+                        atualizar_status_callback(indice, status_rpa, numero_processo_limpo, assunto_processo)
+                    db.inserir_processo(cliente_id, numero_processo_limpo, link_processo=proc['url'], polo_passivo=polo_passivo, tem_tese_concomitante=True, status_merito=status_merito, link_sentenca=link_principal, assunto=assunto_processo)
                     db.inserir_oportunidade(cliente_id, status_rpa, motivo, fase_oportunidade)
 
                     time.sleep(random.uniform(1.0, 2.0))

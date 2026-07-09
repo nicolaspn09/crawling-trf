@@ -158,12 +158,14 @@ class NavegadorPy:
                     if not label:
                         label = f"Campo_{idx}"
                     
-                    # Executa JS para obter todo o texto imediatamente a seguir do strong (nó irmão de texto)
+                    # Executa JS para obter todo o texto a seguir do strong, até o próximo label
                     valor = self.navegador.execute_script(
                         "var node = arguments[0].nextSibling; "
                         "var text = ''; "
-                        "while (node && node.nodeType === 3) { "
-                        "    text += node.textContent; "
+                        "while (node && node.nodeName !== 'STRONG') { "
+                        "    if (node.nodeName !== 'BR') { "
+                        "        text += node.textContent || ''; "
+                        "    } "
                         "    node = node.nextSibling; "
                         "} "
                         "return text.trim();", 
