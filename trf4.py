@@ -57,8 +57,8 @@ class BotTRF4:
                 # Extrai os dados básicos com segurança (caso a linha não tenha todas as colunas)
                 cpf = linha[0].strip() if len(linha) > 0 else ""
 
-                if "47556722953" not in str(cpf).replace("-", "").replace(".", "") or "44827229953" not in str(cpf).replace("-", "").replace(".", ""):
-                    continue
+                # if "47556722953" not in str(cpf).replace("-", "").replace(".", "") or "44827229953" not in str(cpf).replace("-", "").replace(".", ""):
+                #     continue
                 
                 nome = linha[2].strip() if len(linha) > 2 else ""
                 ddd = str(linha[13]).strip() if len(linha) > 13 else ""
