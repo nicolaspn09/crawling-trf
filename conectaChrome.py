@@ -33,7 +33,8 @@ class ChromeStealthManager:
         options.add_argument("--disable-blink-features=AutomationControlled")
 
         # Inicializa o driver oculto (ele detecta a versão automaticamente se não passarmos version_main)
-        navegador = uc.Chrome(options=options)
+        # headless=True é o padrão do undetected_chromedriver para o modo de produção (invisível)
+        navegador = uc.Chrome(options=options, headless=True)
 
         navegador.maximize_window()
 
