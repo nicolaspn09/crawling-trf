@@ -26,9 +26,9 @@ dag = DAG(
 url_git = "https://github.com/nicolaspn09/crawling-trf.git"
 
 # Pasta de destino oficial do projeto
-destino_pasta = "/home/codigos_airflow"
+destino_pasta = "/home/codigos_airflow/lodetti-silveira-crawling-trf"
 # Caminho do script de CI/CD
-caminho_script_cicd = "/home/codigos_airflow/Baixa Arquivos Github/baixaArquivosGithub.py"
+caminho_script_cicd = "/home/codigos_airflow/lodetti-silveira-crawling-trf/Baixa Arquivos Github/baixaArquivosGithub.py"
 
 # Tarefa para executar o script baixaArquivosGithub.py via SSH no Windows
 executa_baixar_arquivos = SSHOperator(pool='windows_host', 
@@ -40,7 +40,7 @@ executa_baixar_arquivos = SSHOperator(pool='windows_host',
 )
 
 # Caminho do robô principal TRF
-caminho_script_robo = "/home/codigos_airflow/main_robo.py"
+caminho_script_robo = "/home/codigos_airflow/lodetti-silveira-crawling-trf/main_robo.py"
 
 # Tarefa para executar o Robô TRF
 executa_robo_trf = SSHOperator(pool='windows_host', 
