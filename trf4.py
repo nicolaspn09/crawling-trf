@@ -100,6 +100,12 @@ class BotTRF4:
                     except Exception:
                         pass
                     
+                    # CRÍTICO: Aguarda o Cloudflare resolver ANTES de clicar em Enviar
+                    try:
+                        acoes.aguardar_sucesso_cloudflare(timeout_captcha=15)
+                    except Exception:
+                        pass # Segue o jogo, pode ser que já tenha passado
+                        
                     acoes.clicar(elemento="botaoEnviar", tipo_dado="id", timer=20)
                     time.sleep(random.uniform(0.5, 1.0))
                     
