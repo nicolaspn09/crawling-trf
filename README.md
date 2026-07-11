@@ -1,8 +1,8 @@
-# RPA de Consulta e Triagem Processual - TRF4 (POC)
+# RPA de Consulta e Triagem Processual - TRF4 (Produção)
 
 Este repositório contém uma solução avançada de **RPA (Robotic Process Automation)** desenvolvida em Python para automação de consultas, extração e triagem inteligente de processos jurídicos nos portais dos Tribunais Regionais Federais (TRF), com foco principal no **TRF4** (Região Sul: RS, PR, SC).
 
-O objetivo principal desta Prova de Conceito (POC) é realizar a busca automatizada por CPF/CNPJ, contornar barreiras de segurança (como Cloudflare Turnstile) e analisar o teor das decisões judiciais para identificar oportunidades baseadas na tese de **Atividade Concomitante**.
+O objetivo principal deste projeto em **Produção** é realizar a busca automatizada por CPF/CNPJ, contornar barreiras de segurança (como Cloudflare Turnstile) e analisar o teor das decisões judiciais para identificar oportunidades baseadas na tese de **Atividade Concomitante**.
 
 ---
 
@@ -23,6 +23,7 @@ Seguindo o princípio de Responsabilidade Única (SRP), a aplicação está divi
 *   **`main_robo.py`:** Ponto de entrada oficial da aplicação. Configura o dicionário de mapeamento entre Estados e os seus respectivos robôs de processamento (ex: "SANTA CATARINA" -> `BotTRF4().executar`), orquestrando a pipeline de forma abstrata.
 *   **`Orquestrador.py`:** Classe `OrquestradorDrive` responsável por realizar a navegação e leitura estruturada nas pastas da nuvem (Teses -> Estados -> Planilhas), acionar a validação do arquivo e delegar a execução ao Bot correto.
 *   **`GoogleDrive.py`:** Classe `GoogleDriveManager` responsável exclusivamente pela comunicação com a API do Google Drive (listar, criar pastas, baixar `.xlsx`/`.csv` e mover arquivos validados para a pasta "ANALISADO").
+*   **`airflow_dag/dag_robo_trf.py`:** Arquivo oficial da DAG do Apache Airflow responsável por orquestrar a esteira de CI/CD, efetuando o clone/pull automático deste repositório e iniciando o RPA diariamente na VPS Linux.
 *   **`trf4.py`:** Classe `BotTRF4`. Contém toda a lógica orientada a objetos para abrir o navegador, tratar captcha, coletar links e executar a triagem jurídica no site do TRF4. Totalmente desacoplada da fonte de dados originais.
 *   **`Database.py`:** Classe responsável pela comunicação exclusiva com o banco de dados PostgreSQL.
 *   **`navegador.py`:** Wrapper robusto (`NavegadorPy`) sobre a API do Selenium WebDriver. Centraliza funções reutilizáveis como cliques assistidos, digitação humanizada, gerenciamento de abas e detecção/foco no iframe do Cloudflare.
