@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 default_args = {
     'owner': 'rpa',
     'start_date': pendulum.datetime(2025, 12, 1, tz="America/Sao_Paulo"),
-    'retries': 1,
+    'retries': 0,
     'retry_delay': timedelta(minutes=5),
 }
 
@@ -28,7 +28,7 @@ url_git = "https://github.com/nicolaspn09/crawling-trf.git"
 # Pasta de destino oficial do projeto
 destino_pasta = "/home/codigos_airflow/lodetti-silveira-crawling-trf"
 # Caminho do script de CI/CD
-caminho_script_cicd = "/home/codigos_airflow/lodetti-silveira-crawling-trf/Baixa Arquivos Github/baixaArquivosGithub.py"
+caminho_script_cicd = "/home/codigos_airflow/Baixa Arquivos Github/baixaArquivosGithub.py"
 
 # Tarefa para executar o script baixaArquivosGithub.py via SSH no Windows
 executa_baixar_arquivos = SSHOperator(
