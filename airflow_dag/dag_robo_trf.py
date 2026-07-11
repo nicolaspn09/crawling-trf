@@ -22,9 +22,8 @@ dag = DAG(
     tags=['rpa', 'trf', 'github', 'prod']
 )
 
-# Como o repositório é privado, substitua <SEU_TOKEN> pelo Personal Access Token do GitHub
-# Exemplo: https://<SEU_TOKEN>@github.com/nicolaspn09/crawling-trf.git
-url_git = "https://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@github.com/nicolaspn09/crawling-trf.git"
+# Como o repositório é público, NÃO precisamos de token nenhum!
+url_git = "https://github.com/nicolaspn09/crawling-trf.git"
 
 # Pasta de destino oficial do projeto
 destino_pasta = "/home/codigos_airflow"
