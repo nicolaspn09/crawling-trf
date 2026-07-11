@@ -27,27 +27,27 @@ dag = DAG(
 url_git = "https://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@github.com/nicolaspn09/crawling-trf.git"
 
 # Pasta de destino oficial do projeto
-destino_pasta = r"C:\\Users\\nicol\\OneDrive\\Cursos online\\Treinamento Python - Hashtag\\Códigos\\Nexus Systems\\Lodetti Silveira\\Códigos"
+destino_pasta = "/home/codigos_airflow"
 # Caminho do script de CI/CD
-caminho_script_cicd = r"C:\\Users\\nicol\\OneDrive\\Cursos online\\Treinamento Python - Hashtag\\Códigos\\Baixa Arquivos Github\\baixaArquivosGithub.py"
+caminho_script_cicd = "/home/codigos_airflow/Baixa Arquivos Github/baixaArquivosGithub.py"
 
 # Tarefa para executar o script baixaArquivosGithub.py via SSH no Windows
 executa_baixar_arquivos = SSHOperator(pool='windows_host', 
     task_id='ssh-executa_baixar_arquivos_github',
     ssh_conn_id='rpa_vps_host',  # O ID da conexão SSH configurada no seu Airflow (mesmo do GitLab)
-    command=f'python "{caminho_script_cicd}" --url_git "{url_git}" --destino_pasta "{destino_pasta}"',
+    command=f'python3 "{caminho_script_cicd}" --url_git "{url_git}" --destino_pasta "{destino_pasta}"',
     dag=dag,
     trigger_rule='all_success'
 )
 
 # Caminho do robô principal TRF
-caminho_script_robo = r"C:\\Users\\nicol\\OneDrive\\Cursos online\\Treinamento Python - Hashtag\\Códigos\\Nexus Systems\\Lodetti Silveira\\Códigos\\main_robo.py"
+caminho_script_robo = "/home/codigos_airflow/main_robo.py"
 
 # Tarefa para executar o Robô TRF
 executa_robo_trf = SSHOperator(pool='windows_host', 
     task_id='ssh-executa_robo_trf',
     ssh_conn_id='rpa_vps_host',
-    command=f'python "{caminho_script_robo}"',
+    command=f'python3 "{caminho_script_robo}"',
     dag=dag,
     trigger_rule='all_success'
 )
