@@ -31,7 +31,7 @@ destino_pasta = "/home/codigos_airflow/lodetti-silveira-crawling-trf"
 caminho_script_cicd = "/home/codigos_airflow/lodetti-silveira-crawling-trf/Baixa Arquivos Github/baixaArquivosGithub.py"
 
 # Tarefa para executar o script baixaArquivosGithub.py via SSH no Windows
-executa_baixar_arquivos = SSHOperator(pool='windows_host', 
+executa_baixar_arquivos = SSHOperator(
     task_id='ssh-executa_baixar_arquivos_github',
     ssh_conn_id='rpa_vps_host',  # O ID da conexão SSH configurada no seu Airflow (mesmo do GitLab)
     command=f'python3 "{caminho_script_cicd}" --url_git "{url_git}" --destino_pasta "{destino_pasta}"',
@@ -43,7 +43,7 @@ executa_baixar_arquivos = SSHOperator(pool='windows_host',
 caminho_script_robo = "/home/codigos_airflow/lodetti-silveira-crawling-trf/main_robo.py"
 
 # Tarefa para executar o Robô TRF
-executa_robo_trf = SSHOperator(pool='windows_host', 
+executa_robo_trf = SSHOperator(
     task_id='ssh-executa_robo_trf',
     ssh_conn_id='rpa_vps_host',
     command=f'python3 "{caminho_script_robo}"',
