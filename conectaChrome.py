@@ -1,6 +1,7 @@
 import sys
 import psutil
 import undetected_chromedriver as uc
+import platform
 
 class ChromeStealthManager:
     def __init__(self, caminho_arquivo=None):
@@ -32,9 +33,12 @@ class ChromeStealthManager:
         # Desativa detecções comuns de automação via flags do Chrome
         options.add_argument("--disable-blink-features=AutomationControlled")
 
-        # Inicializa o driver oculto (ele detecta a versão automaticamente se não passarmos version_main)
+        # Inicializa o driver oculto
         # headless=True é o padrão do undetected_chromedriver para o modo de produção (invisível)
-        navegador = uc.Chrome(options=options, headless=True)
+        if platform.system() == "Linux":
+            navegador = uc.Chrome(options=options, headless=True, browser_executable_path='/usr/bin/google-chrome')
+        else:
+            navegador = uc.Chrome(options=options, headless=True)
 
         navegador.maximize_window()
 

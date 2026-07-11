@@ -31,7 +31,7 @@ class OrquestradorDrive:
                 pastas_estados_ufs = self.drive.listar_arquivos(pasta_estados['id'], mime_type='application/vnd.google-apps.folder')
                 
                 for pasta_uf in pastas_estados_ufs:
-                    nome_estado = pasta_uf['name'].upper()
+                    nome_estado = pasta_uf['name'].strip().upper()
                     
                     if nome_estado in self.map_estados_bots:
                         print(f"    -> Encontrado estado mapeado: {nome_estado}")
