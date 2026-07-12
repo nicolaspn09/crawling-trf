@@ -102,9 +102,9 @@ class BotTRF4:
                     
                     # CRÍTICO: Aguarda o Cloudflare resolver ANTES de clicar em Enviar
                     try:
-                        acoes.aguardar_sucesso_cloudflare(timeout_captcha=15)
-                    except Exception:
-                        pass # Segue o jogo, pode ser que já tenha passado
+                        acoes.aguardar_sucesso_cloudflare(timeout_captcha=45)
+                    except Exception as e:
+                        print(f"    [Aviso] Cloudflare estourou tempo: {e}")
                         
                     acoes.clicar(elemento="botaoEnviar", tipo_dado="id", timer=20)
                     time.sleep(random.uniform(0.5, 1.0))
@@ -356,9 +356,19 @@ class BotTRF4:
 
             except Exception as e:
                 print(f"[ERRO CPF] Falha no índice {indice} (Linha {indice}): {e}")
-                continue
-
-        print("\n[POC STATUS] Execução finalizada. Banco atualizado.")
+                
+                # Resiliência: se a falha deixou um alerta (ex: "Aguarde o captcha") preso na tela,
+                # nós aceitamos ele aqui para limpar a tela e não quebrar o próximo CPF da fila.
+                try:
+                    from selenium.webdriver.support.ui import WebDriverWait
+                    from selenium.webdriver.support import expected_conditions as EC
+                    alert = WebDriverWait(navegador, 1).until(EC.alert_is_present())
+                    alert.accept()
+                except:
+                    pass
+                
+                if atualizar_status_callback:
+                    atualizar_status_callback(f"Erro na linha {indice}: {str(e)[:50]}")
         db.fechar_conexao()
         navegador.quit()
 
