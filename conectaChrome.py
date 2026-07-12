@@ -26,6 +26,7 @@ class ChromeStealthManager:
         
         # Argumentos essenciais para passar pelo Cloudflare Turnstile
         options.add_argument("--window-size=1920,1080")
+        options.add_argument("--start-maximized")
         options.add_argument("--disable-gpu")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
@@ -43,11 +44,9 @@ class ChromeStealthManager:
                 print("[AVISO] pacote pyvirtualdisplay não encontrado. Rode: pip3 install pyvirtualdisplay")
                 
             # No Linux, tiramos o headless=True e deixamos o Xvfb (Display) fazer o trabalho de esconder a tela.
-            navegador = uc.Chrome(options=options, headless=False, browser_executable_path='/usr/bin/google-chrome')
+            navegador = uc.Chrome(options=options, headless=False, browser_executable_path='/usr/bin/google-chrome', use_subprocess=True)
         else:
-            navegador = uc.Chrome(options=options, headless=True)
-
-        navegador.maximize_window()
+            navegador = uc.Chrome(options=options, headless=True, use_subprocess=True)
 
         # Captura os PIDs para manter o seu controle de encerramento
         driver_pid = navegador.browser_pid
