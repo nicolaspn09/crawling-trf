@@ -33,10 +33,17 @@ class ChromeStealthManager:
         # Desativa detecções comuns de automação via flags do Chrome
         options.add_argument("--disable-blink-features=AutomationControlled")
 
-        # Inicializa o driver oculto
-        # headless=True é o padrão do undetected_chromedriver para o modo de produção (invisível)
+        # Inicializa o driver (No Linux, usa monitor virtual para enganar o Cloudflare)
         if platform.system() == "Linux":
-            navegador = uc.Chrome(options=options, headless=True, browser_executable_path='/usr/bin/google-chrome')
+            try:
+                from pyvirtualdisplay import Display
+                self.display = Display(visible=0, size=(1920, 1080))
+                self.display.start()
+            except ImportError:
+                print("[AVISO] pacote pyvirtualdisplay não encontrado. Rode: pip3 install pyvirtualdisplay")
+                
+            # No Linux, tiramos o headless=True e deixamos o Xvfb (Display) fazer o trabalho de esconder a tela.
+            navegador = uc.Chrome(options=options, headless=False, browser_executable_path='/usr/bin/google-chrome')
         else:
             navegador = uc.Chrome(options=options, headless=True)
 
