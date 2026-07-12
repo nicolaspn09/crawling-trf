@@ -368,7 +368,7 @@ class BotTRF4:
                     pass
                 
                 if atualizar_status_callback:
-                    atualizar_status_callback(f"Erro na linha {indice}: {str(e)[:50]}")
+                    atualizar_status_callback(indice, f"Erro na linha {indice}: {str(e)[:50]}")
         db.fechar_conexao()
         navegador.quit()
 

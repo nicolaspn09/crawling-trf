@@ -45,6 +45,10 @@ class ChromeStealthManager:
                 
             # No Linux, tiramos o headless=True e deixamos o Xvfb (Display) fazer o trabalho de esconder a tela.
             navegador = uc.Chrome(options=options, headless=False, browser_executable_path='/usr/bin/google-chrome', use_subprocess=True)
+            
+            # Salva a referência do display dentro do navegador para o Python não matar o Xvfb (Garbage Collection)
+            if hasattr(self, 'display'):
+                navegador.xvfb_display = self.display
         else:
             navegador = uc.Chrome(options=options, headless=True, use_subprocess=True)
 
