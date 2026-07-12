@@ -357,18 +357,19 @@ class BotTRF4:
             except Exception as e:
                 print(f"[ERRO CPF] Falha no índice {indice} (Linha {indice}): {e}")
                 
-                # Resiliência: se a falha deixou um alerta (ex: "Aguarde o captcha") preso na tela,
-                # nós aceitamos ele aqui para limpar a tela e não quebrar o próximo CPF da fila.
-                try:
-                    from selenium.webdriver.support.ui import WebDriverWait
-                    from selenium.webdriver.support import expected_conditions as EC
-                    alert = WebDriverWait(navegador, 1).until(EC.alert_is_present())
-                    alert.accept()
-                except:
-                    pass
-                
                 if atualizar_status_callback:
                     atualizar_status_callback(indice, f"Erro na linha {indice}: {str(e)[:50]}")
+
+                # Resiliência Máxima: Se o script chegou aqui, o site pode estar com alertas presos
+                # ou travado no Cloudflare. Para não estragar os próximos CPFs (efeito dominó),
+                # nós matamos o navegador atual e abrimos um novinho em folha!
+                try:
+                    print(f"    [RESET] Reiniciando o navegador para limpar falhas e alertas residuais...")
+                    navegador.quit()
+                    time.sleep(2)
+                    navegador, firefox_pids = self._inicia_navegador()
+                except Exception as ex_reset:
+                    print(f"    [AVISO] Falha ao tentar reiniciar o navegador: {ex_reset}")
         db.fechar_conexao()
         navegador.quit()
 
