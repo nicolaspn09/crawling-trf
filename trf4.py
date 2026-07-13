@@ -105,6 +105,7 @@ class BotTRF4:
                     # Vamos tentar clicar. Se der o alert "Aguarde", esperamos e tentamos de novo.
                     from selenium.common.exceptions import UnexpectedAlertPresentException, NoAlertPresentException
                     
+                    alerta_texto_encontrado = ""
                     tentativas_captcha = 0
                     while tentativas_captcha < 8:
                         try:
@@ -121,6 +122,10 @@ class BotTRF4:
                                     time.sleep(5)
                                     tentativas_captcha += 1
                                     continue
+                                else:
+                                    alerta_texto_encontrado = texto
+                                    alerta.accept()
+                                    break
                             except NoAlertPresentException:
                                 pass # Nenhum alerta apareceu após o clique, sucesso!
                             
@@ -147,19 +152,22 @@ class BotTRF4:
                                 tentativas_captcha += 1
                                 continue
                             else:
-                                # Era um alerta diferente (ex: Nenhum processo encontrado)
-                                # Apenas quebramos o loop para o script seguir o fluxo normal
+                                alerta_texto_encontrado = str(texto_inesperado)
                                 break
                             
                     time.sleep(random.uniform(0.5, 1.0))
                     
-                    return acoes
+                    return acoes, alerta_texto_encontrado
 
                 print(f"\n[CONSULTA] Iniciando busca para o CPF: {cpf}")
-                acoes = fazer_pesquisa_eproc(cpf, indice_origem=3)
+                acoes, alerta_da_pesquisa = fazer_pesquisa_eproc(cpf, indice_origem=3)
 
                 # Trata possíveis popups (ex: Nenhum processo encontrado) nativos do site
-                tem_alerta, texto_alerta = self._tratar_alerta_popup(navegador, timeout=3)
+                tem_alerta, texto_alerta = self._tratar_alerta_popup(navegador, timeout=2)
+                
+                if alerta_da_pesquisa:
+                    tem_alerta = True
+                    texto_alerta = alerta_da_pesquisa
                 
                 # Trata possível erro ao buscar o CPF 
                 erro_site = acoes._obter_elemento(elemento="divInfraBarraLocalizacao", tipo_dado="id", timer=3)
@@ -182,10 +190,13 @@ class BotTRF4:
 
                 # DUPLA CHECAGEM: Se não encontrou pelo CPF, tenta pelo Nome
                 if tem_alerta or not lista_processos:
-                    print(f"[RESULTADO CPF] CPF {cpf}: Nada Consta. Tentando dupla checagem pelo NOME: {nome}")
-                    acoes = fazer_pesquisa_eproc(nome, indice_origem=2)
+                    print(f"[RESULTADO CPF] CPF {cpf}: Nada Consta ({texto_alerta}). Tentando dupla checagem pelo NOME: {nome}")
+                    acoes, alerta_nome = fazer_pesquisa_eproc(nome, indice_origem=2)
                     
-                    tem_alerta, texto_alerta = self._tratar_alerta_popup(navegador, timeout=3)
+                    tem_alerta, texto_alerta = self._tratar_alerta_popup(navegador, timeout=2)
+                    if alerta_nome:
+                        tem_alerta = True
+                        texto_alerta = alerta_nome
                     
                     if not tem_alerta and not erro_site:
                         cloudflare = acoes._obter_elemento(elemento="/html/body/div[1]/section/div[7]/div/form/input[1]", tipo_dado="xpath", timer=5)
