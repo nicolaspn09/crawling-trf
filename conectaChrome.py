@@ -1,7 +1,7 @@
 import sys
 import psutil
-import undetected_chromedriver as uc
 import platform
+from seleniumbase import Driver
 
 class ChromeStealthManager:
     def __init__(self, caminho_arquivo=None):
@@ -22,19 +22,7 @@ class ChromeStealthManager:
         if self.caminho_arquivo:
             sys.stdout = open(self.caminho_arquivo, 'w')
 
-        options = uc.ChromeOptions()
-        
-        # Argumentos essenciais para passar pelo Cloudflare Turnstile
-        options.add_argument("--window-size=1920,1080")
-        options.add_argument("--start-maximized")
-        options.add_argument("--disable-gpu")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        
-        # Desativa detecções comuns de automação via flags do Chrome
-        options.add_argument("--disable-blink-features=AutomationControlled")
-
-        # Inicializa o driver (No Linux, usa monitor virtual para enganar o Cloudflare)
+        # No Linux, ainda usamos Xvfb pois UC mode no Linux requer headed mode para passar no Turnstile
         if platform.system() == "Linux":
             try:
                 from pyvirtualdisplay import Display
@@ -43,18 +31,30 @@ class ChromeStealthManager:
             except ImportError:
                 print("[AVISO] pacote pyvirtualdisplay não encontrado. Rode: pip3 install pyvirtualdisplay")
                 
-            # No Linux, tiramos o headless=True e deixamos o Xvfb (Display) fazer o trabalho de esconder a tela.
-            navegador = uc.Chrome(options=options, headless=False, browser_executable_path='/usr/bin/google-chrome', use_subprocess=True)
-            
-            # Salva a referência do display dentro do navegador para o Python não matar o Xvfb (Garbage Collection)
-            if hasattr(self, 'display'):
-                navegador.xvfb_display = self.display
-        else:
-            navegador = uc.Chrome(options=options, headless=True, use_subprocess=True)
+        print("[INFO] Iniciando Chrome pelo SeleniumBase (Modo UC)...")
+        # Inicia o SeleniumBase com UC (Undetected Chromedriver) Mode habilitado
+        navegador = Driver(
+            uc=True,
+            headless=False,
+            browser="chrome",
+            binary_location="/usr/bin/google-chrome" if platform.system() == "Linux" else None,
+            no_sandbox=True,
+            disable_gpu=True,
+            window_size="1920,1080"
+        )
+        
+        # Salva a referência do display dentro do navegador para o Python não matar o Xvfb (Garbage Collection)
+        if hasattr(self, 'display'):
+            navegador.xvfb_display = self.display
 
-        # Captura os PIDs para manter o seu controle de encerramento
-        driver_pid = navegador.browser_pid
-        chrome_pids = self.find_chrome_processes(driver_pid)
+        # O SeleniumBase UC mode pode bugar se usar maximize_window(), então definimos o window_size acima.
+        
+        # Captura os PIDs para manter o seu controle de encerramento (opcional no SB, mas mantido por segurança)
+        try:
+            driver_pid = navegador.service.process.pid
+            chrome_pids = self.find_chrome_processes(driver_pid)
+        except Exception:
+            chrome_pids = []
 
         return navegador, chrome_pids
 

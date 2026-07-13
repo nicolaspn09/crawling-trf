@@ -21,11 +21,13 @@ class BotTRF4:
         return navegador, firefox_pids
 
     def _acessa_site(self, navegador):
-        url = AcessaSite().site("sc")
-        # Força o recarregamento total da página saindo dela e voltando
-        navegador.get("about:blank")
+        url = "https://eproc.trf4.jus.br/eproc2trf4/externo_controlador.php?acao=consulta_publica_processo"
+        try:
+            # O uc_open_with_reconnect é o "Santo Graal" do SeleniumBase para despistar o Cloudflare
+            navegador.uc_open_with_reconnect(url, 4)
+        except AttributeError:
+            navegador.get(url)
         time.sleep(0.1)
-        navegador.get(url)
 
     def _validar_cpf(self, cpf):
         if "." in str(cpf) or "-" in str(cpf):
