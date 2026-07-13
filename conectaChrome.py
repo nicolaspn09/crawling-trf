@@ -38,7 +38,7 @@ class ChromeStealthManager:
         if platform.system() == "Linux":
             navegador = uc.Chrome(options=options, headless=True, browser_executable_path='/usr/bin/google-chrome')
         else:
-            navegador = uc.Chrome(options=options, headless=True)
+            navegador = uc.Chrome(options=options, headless=False)
 
         navegador.maximize_window()
 
