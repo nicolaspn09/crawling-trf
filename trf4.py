@@ -48,7 +48,7 @@ class BotTRF4:
         except Exception:
             return False, None
 
-    def executar(self, lista_dados, atualizar_status_callback=None):
+    def executar(self, lista_dados, atualizar_status_callback=None, estado="SC"):
         db = Database()
         navegador, firefox_pids = self._inicia_navegador()
         
@@ -85,11 +85,13 @@ class BotTRF4:
                     acoes.combobox(elemento="selForma", tipo_dado="id", timer=20, index=indice_origem)
                     time.sleep(random.uniform(0.2, 0.5))
                     
-                    try:
-                        acoes.combobox(elemento="selOrigem", tipo_dado="id", timer=5, index=2)
-                        time.sleep(random.uniform(0.2, 0.4))
-                    except Exception:
-                        pass # O campo selOrigem não existe ou fica oculto quando a busca é pelo Nome
+                    if estado == "SC":
+                        try:
+                            # 3 = JFSC (Santa Catarina)
+                            acoes.combobox(elemento="selOrigem", tipo_dado="id", timer=5, index=3)
+                            time.sleep(random.uniform(0.2, 0.4))
+                        except Exception:
+                            pass # O campo selOrigem não existe ou fica oculto quando a busca é pelo Nome
                     
                     acoes.adicionar_informacao(elemento="txtValor", tipo_dado="id", valor=valor_busca, timer=20)
                     time.sleep(random.uniform(0.1, 0.3))

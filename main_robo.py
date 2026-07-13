@@ -5,9 +5,9 @@ from trf4 import BotTRF4
 # Aqui configuramos quais estados (pastas) disparam quais robôs.
 # No futuro, você pode importar BotTRF3, BotTRF1, etc.
 MAPA_ESTADOS_BOTS = {
-    "SANTA CATARINA": BotTRF4().executar,
-    # "RIO GRANDE DO SUL": BotTRF4().executar,  # Removido temporariamente para testes
-    # "PARANA": BotTRF4().executar              # Removido temporariamente para testes
+    "SANTA CATARINA": lambda ld, cb: BotTRF4().executar(ld, atualizar_status_callback=cb, estado="SC"),
+    "RIO GRANDE DO SUL": lambda ld, cb: BotTRF4().executar(ld, atualizar_status_callback=cb, estado="RS"),
+    "PARANA": lambda ld, cb: BotTRF4().executar(ld, atualizar_status_callback=cb, estado="PR")
 }
 
 def main():
