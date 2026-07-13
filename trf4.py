@@ -129,14 +129,27 @@ class BotTRF4:
                             
                         except UnexpectedAlertPresentException as e:
                             # O Selenium detectou o alert bloqueando a ação
+                            texto_inesperado = ""
                             try:
-                                alerta = navegador.switch_to.alert
-                                alerta.accept()
+                                texto_inesperado = e.alert_text
+                                if not texto_inesperado:
+                                    alerta = navegador.switch_to.alert
+                                    texto_inesperado = alerta.text
+                                    alerta.accept()
+                                else:
+                                    navegador.switch_to.alert.accept()
                             except:
                                 pass
-                            print(f"    [Aviso] Alerta inesperado bloqueou o clique. Esperando 5s... (Tentativa {tentativas_captcha+1}/8)")
-                            time.sleep(5)
-                            tentativas_captcha += 1
+                                
+                            if "captcha" in str(texto_inesperado).lower() or "aguarde" in str(texto_inesperado).lower():
+                                print(f"    [Aviso] Alerta de captcha bloqueou o clique. Esperando 5s... (Tentativa {tentativas_captcha+1}/8)")
+                                time.sleep(5)
+                                tentativas_captcha += 1
+                                continue
+                            else:
+                                # Era um alerta diferente (ex: Nenhum processo encontrado)
+                                # Apenas quebramos o loop para o script seguir o fluxo normal
+                                break
                             
                     time.sleep(random.uniform(0.5, 1.0))
                     
