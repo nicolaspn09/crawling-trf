@@ -21,7 +21,11 @@ class OrquestradorDrive:
         pastas_raiz = self.drive.listar_arquivos(self.parent_folder_id, mime_type='application/vnd.google-apps.folder')
         
         for pasta_tese in pastas_raiz:
-            print(f"Encontrada tese: {pasta_tese['name']}")
+            if "CONCOMITANTE" not in pasta_tese['name'].upper():
+                print(f"Ignorando tese (não é concomitante): {pasta_tese['name']}")
+                continue
+                
+            print(f"Encontrada tese concomitante: {pasta_tese['name']}")
             
             pastas_tese = self.drive.listar_arquivos(pasta_tese['id'], mime_type='application/vnd.google-apps.folder')
             pasta_estados = next((p for p in pastas_tese if p['name'].upper() == "ESTADOS"), None)
