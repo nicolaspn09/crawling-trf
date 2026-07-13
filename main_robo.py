@@ -6,8 +6,8 @@ from trf4 import BotTRF4
 # No futuro, você pode importar BotTRF3, BotTRF1, etc.
 MAPA_ESTADOS_BOTS = {
     "SANTA CATARINA": BotTRF4().executar,
-    "RIO GRANDE DO SUL": BotTRF4().executar,  # Exemplo: RS também é TRF4
-    "PARANA": BotTRF4().executar              # Exemplo: PR também é TRF4
+    # "RIO GRANDE DO SUL": BotTRF4().executar,  # Removido temporariamente para testes
+    # "PARANA": BotTRF4().executar              # Removido temporariamente para testes
 }
 
 def main():
