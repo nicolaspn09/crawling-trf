@@ -21,7 +21,7 @@ class BotTRF4:
         return navegador, firefox_pids
 
     def _acessa_site(self, navegador):
-        url = "https://eproc.trf4.jus.br/eproc2trf4/externo_controlador.php?acao=consulta_publica_processo"
+        url = AcessaSite().site("sc")
         try:
             # O uc_open_with_reconnect é o "Santo Graal" do SeleniumBase para despistar o Cloudflare
             navegador.uc_open_with_reconnect(url, 4)
