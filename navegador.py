@@ -96,18 +96,22 @@ class NavegadorPy:
                 EC.presence_of_element_located((By.XPATH, "//iframe[contains(@src, 'cloudflare')]"))
             )
             
-            # 1.5 TENTA CLICAR NO IFRAME
-            # Em servidores (VPS), o Cloudflare raramente valida passivamente. Ele exige um clique.
-            try:
-                time.sleep(1)
-                ActionChains(self.navegador).move_to_element(iframe_cloudflare).click().perform()
-                print("[INFO] Clique físico enviado ao Cloudflare.")
-                time.sleep(2)
-            except Exception as e:
-                print(f"[Aviso] Falha ao tentar clicar no Cloudflare: {e}")
-                
             # Alterna o foco do driver para dentro do iframe
             self.navegador.switch_to.frame(iframe_cloudflare)
+            
+            # 1.5 TENTA CLICAR NA CHECKBOX DO CLOUDFLARE
+            # Em servidores (VPS), o Cloudflare raramente valida passivamente. Ele exige um clique.
+            try:
+                time.sleep(1.5)
+                # O Turnstile do Cloudflare costuma ter a checkbox na tag body ou num input específico
+                box = WebDriverWait(self.navegador, 3).until(
+                    EC.element_to_be_clickable((By.XPATH, "//body"))
+                )
+                box.click()
+                print("[INFO] Clique físico enviado ao Cloudflare (checkbox interna).")
+                time.sleep(2)
+            except Exception as e:
+                print(f"[Aviso] Falha ao tentar clicar no Cloudflare interno: {e}")
         except Exception:
             # Se não achar o iframe, pode ser que o Cloudflare não tenha disparado nesta requisição
             return
