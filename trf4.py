@@ -100,13 +100,44 @@ class BotTRF4:
                     except Exception:
                         pass
                     
-                    # CRÍTICO: Aguarda o Cloudflare resolver ANTES de clicar em Enviar
-                    try:
-                        acoes.aguardar_sucesso_cloudflare(timeout_captcha=45)
-                    except Exception as e:
-                        print(f"    [Aviso] Cloudflare estourou tempo: {e}")
-                        
-                    acoes.clicar(elemento="botaoEnviar", tipo_dado="id", timer=20)
+                    # CRÍTICO: O site do TRF4 tem uma validação própria em JS que solta um alert()
+                    # se tentarmos clicar em "Pesquisar" antes do Captcha terminar de carregar/resolver.
+                    # Vamos tentar clicar. Se der o alert "Aguarde", esperamos e tentamos de novo.
+                    from selenium.common.exceptions import UnexpectedAlertPresentException, NoAlertPresentException
+                    
+                    tentativas_captcha = 0
+                    while tentativas_captcha < 8:
+                        try:
+                            acoes.clicar(elemento="botaoEnviar", tipo_dado="id", timer=10)
+                            time.sleep(0.5)
+                            
+                            # Verifica proativamente se o alert pulou logo após o clique
+                            try:
+                                alerta = navegador.switch_to.alert
+                                texto = alerta.text
+                                if "captcha" in texto.lower() or "aguarde" in texto.lower():
+                                    alerta.accept()
+                                    print(f"    [Aviso] O site pediu para aguardar o captcha. Esperando 5s... (Tentativa {tentativas_captcha+1}/8)")
+                                    time.sleep(5)
+                                    tentativas_captcha += 1
+                                    continue
+                            except NoAlertPresentException:
+                                pass # Nenhum alerta apareceu após o clique, sucesso!
+                            
+                            # Se chegou aqui sem alert, o clique passou perfeitamente!
+                            break
+                            
+                        except UnexpectedAlertPresentException as e:
+                            # O Selenium detectou o alert bloqueando a ação
+                            try:
+                                alerta = navegador.switch_to.alert
+                                alerta.accept()
+                            except:
+                                pass
+                            print(f"    [Aviso] Alerta inesperado bloqueou o clique. Esperando 5s... (Tentativa {tentativas_captcha+1}/8)")
+                            time.sleep(5)
+                            tentativas_captcha += 1
+                            
                     time.sleep(random.uniform(0.5, 1.0))
                     
                     return acoes
