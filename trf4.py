@@ -77,89 +77,78 @@ class BotTRF4:
                 cliente_id = db.obter_ou_criar_cliente(cpf=cpf_limpo, nome=nome, telefone=telefone_completo)
                 
                 def fazer_pesquisa_eproc(valor_busca, indice_origem=3):
-                    self._acessa_site(navegador=navegador)
-                    time.sleep(random.uniform(0.5, 1.0))
-                    
-                    acoes = NavegadorPy(navegador=navegador)
-                    
-                    acoes.combobox(elemento="selForma", tipo_dado="id", timer=20, index=indice_origem)
-                    time.sleep(random.uniform(0.2, 0.5))
-                    
-                    if estado == "SC":
-                        try:
-                            # 3 = JFSC (Santa Catarina)
-                            acoes.combobox(elemento="selOrigem", tipo_dado="id", timer=5, index=3)
-                            time.sleep(random.uniform(0.2, 0.4))
-                        except Exception:
-                            pass # O campo selOrigem não existe ou fica oculto quando a busca é pelo Nome
-                    
-                    acoes.adicionar_informacao(elemento="txtValor", tipo_dado="id", valor=valor_busca, timer=20)
-                    time.sleep(random.uniform(0.1, 0.3))
-                    
-                    try:
-                        acoes.clicar(elemento="chkMostrarBaixados", tipo_dado="id", timer=5)
-                        time.sleep(random.uniform(0.1, 0.3))
-                    except Exception:
-                        pass
-                    
-                    # CRÍTICO: O site do TRF4 tem uma validação própria em JS que solta um alert()
-                    # se tentarmos clicar em "Pesquisar" antes do Captcha terminar de carregar/resolver.
-                    # Vamos tentar clicar. Se der o alert "Aguarde", esperamos e tentamos de novo.
                     from selenium.common.exceptions import UnexpectedAlertPresentException, NoAlertPresentException
                     
-                    alerta_texto_encontrado = ""
-                    tentativas_captcha = 0
-                    while tentativas_captcha < 8:
+                    tentativas_globais = 0
+                    while tentativas_globais < 8:
                         try:
+                            self._acessa_site(navegador=navegador)
+                            time.sleep(random.uniform(0.5, 1.0))
+                            
+                            acoes = NavegadorPy(navegador=navegador)
+                            
+                            acoes.combobox(elemento="selForma", tipo_dado="id", timer=20, index=indice_origem)
+                            time.sleep(random.uniform(0.2, 0.5))
+                            
+                            if estado == "SC":
+                                try:
+                                    # 3 = JFSC (Santa Catarina)
+                                    acoes.combobox(elemento="selOrigem", tipo_dado="id", timer=5, index=3)
+                                    time.sleep(random.uniform(0.2, 0.4))
+                                except Exception:
+                                    pass # O campo selOrigem não existe ou fica oculto quando a busca é pelo Nome
+                            
+                            acoes.adicionar_informacao(elemento="txtValor", tipo_dado="id", valor=valor_busca, timer=20)
+                            time.sleep(random.uniform(0.1, 0.3))
+                            
+                            try:
+                                acoes.clicar(elemento="chkMostrarBaixados", tipo_dado="id", timer=5)
+                                time.sleep(random.uniform(0.1, 0.3))
+                            except Exception:
+                                pass
+                            
                             acoes.clicar(elemento="botaoEnviar", tipo_dado="id", timer=10)
                             time.sleep(0.5)
                             
-                            # Verifica proativamente se o alert pulou logo após o clique
+                            alerta_texto_encontrado = ""
                             try:
                                 alerta = navegador.switch_to.alert
                                 texto = alerta.text
                                 if "captcha" in texto.lower() or "aguarde" in texto.lower():
                                     alerta.accept()
-                                    print(f"    [Aviso] O site pediu para aguardar o captcha. Esperando 5s... (Tentativa {tentativas_captcha+1}/8)")
+                                    print(f"    [Aviso] Alerta de captcha pós-clique. Esperando 5s... (Tentativa {tentativas_globais+1}/8)")
                                     time.sleep(5)
-                                    tentativas_captcha += 1
+                                    tentativas_globais += 1
                                     continue
                                 else:
                                     alerta_texto_encontrado = texto
                                     alerta.accept()
-                                    break
                             except NoAlertPresentException:
-                                pass # Nenhum alerta apareceu após o clique, sucesso!
+                                pass
                             
-                            # Se chegou aqui sem alert, o clique passou perfeitamente!
-                            break
+                            time.sleep(random.uniform(0.5, 1.0))
+                            return acoes, alerta_texto_encontrado
                             
                         except UnexpectedAlertPresentException as e:
-                            # O Selenium detectou o alert bloqueando a ação
                             texto_inesperado = ""
                             try:
-                                texto_inesperado = e.alert_text
+                                texto_inesperado = getattr(e, 'alert_text', "")
                                 if not texto_inesperado:
-                                    alerta = navegador.switch_to.alert
-                                    texto_inesperado = alerta.text
-                                    alerta.accept()
-                                else:
-                                    navegador.switch_to.alert.accept()
+                                    texto_inesperado = navegador.switch_to.alert.text
+                                navegador.switch_to.alert.accept()
                             except:
                                 pass
                                 
                             if "captcha" in str(texto_inesperado).lower() or "aguarde" in str(texto_inesperado).lower():
-                                print(f"    [Aviso] Alerta de captcha bloqueou o clique. Esperando 5s... (Tentativa {tentativas_captcha+1}/8)")
+                                print(f"    [Aviso] Alerta precoce de captcha bloqueou a página. Esperando 5s... (Tentativa {tentativas_globais+1}/8)")
                                 time.sleep(5)
-                                tentativas_captcha += 1
+                                tentativas_globais += 1
                                 continue
                             else:
-                                alerta_texto_encontrado = str(texto_inesperado)
-                                break
-                            
-                    time.sleep(random.uniform(0.5, 1.0))
-                    
-                    return acoes, alerta_texto_encontrado
+                                # Era um alerta diferente (ex: Nenhum processo encontrado)
+                                return acoes, str(texto_inesperado)
+                                
+                    return acoes, ""
 
                 print(f"\n[CONSULTA] Iniciando busca para o CPF: {cpf}")
                 acoes, alerta_da_pesquisa = fazer_pesquisa_eproc(cpf, indice_origem=3)
