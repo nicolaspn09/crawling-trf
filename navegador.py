@@ -24,7 +24,7 @@ class NavegadorPy:
             return WebDriverWait(self.navegador, timer).until(
                 EC.presence_of_element_located((by_map[tipo_dado], elemento))
             )
-        except (TimeoutException, UnexpectedAlertPresentException):
+        except TimeoutException:
             return False
 
     def clicar(self, tipo_dado, elemento, timer=60):

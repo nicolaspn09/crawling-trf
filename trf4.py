@@ -53,7 +53,13 @@ class BotTRF4:
         db = Database()
         navegador, firefox_pids = self._inicia_navegador()
         
-        for indice, linha in enumerate(lista_dados, start=2):
+        indice_atual = 2
+        tentativas_cpf_global = 0
+        
+        while indice_atual < len(lista_dados) + 2:
+            linha = lista_dados[indice_atual - 2]
+            indice = indice_atual
+            
             try:
                 # Extrai os dados básicos com segurança (caso a linha não tenha todas as colunas)
                 cpf = linha[0].strip() if len(linha) > 0 else ""
@@ -69,6 +75,8 @@ class BotTRF4:
                 # Valida o CPF antes de prosseguir
                 if not self._validar_cpf(cpf):
                     print(f"[AVISO] CPF inválido ou em branco: '{cpf}'. Pulando linha.")
+                    indice_atual += 1
+                    tentativas_cpf_global = 0
                     continue
 
                 # Limpa o CPF para manter padrão no banco de dados (apenas números)
@@ -435,8 +443,22 @@ class BotTRF4:
                 print(f"[ERRO CPF] Falha no índice {indice} (Linha {indice}): {e}")
                 print(f"[PYTHON STACKTRACE]\n{tb_str}")
                 
-                if atualizar_status_callback:
-                    atualizar_status_callback(indice, f"Erro na linha {indice}: {str(e)[:50]}")
+                err_msg = str(e).lower()
+                if ('captcha' in err_msg or 'aguarde' in err_msg) and tentativas_cpf_global < 5:
+                    tentativas_cpf_global += 1
+                    print(f"    [RETRY] Tentativa {tentativas_cpf_global}/5 para o CPF {cpf}...")
+                else:
+                    indice_atual += 1
+                    tentativas_cpf_global = 0
+                    if atualizar_status_callback:
+                        atualizar_status_callback(indice, f"Erro na linha {indice}: {str(e)[:50]}")
+                    status = f"Erro na linha {indice}: {str(e)}"
+                    db.atualizar_status_processamento(
+                        tabela="Pesquisa_TRF4",
+                        cliente_id=cliente_id,
+                        status_verificacao=status,
+                        detalhes=status
+                    )
 
                 # Resiliência Máxima: Se o script chegou aqui, o site pode estar com alertas presos
                 # ou travado no Cloudflare. Para não estragar os próximos CPFs (efeito dominó),
