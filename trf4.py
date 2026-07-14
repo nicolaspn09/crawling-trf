@@ -24,6 +24,7 @@ class BotTRF4:
         url = AcessaSite().site("sc")
         # Força o recarregamento total da página saindo dela e voltando
         navegador.get("about:blank")
+        navegador.delete_all_cookies() # Limpa histórico de sessão para burlar token do Cloudflare
         time.sleep(0.1)
         navegador.get(url)
 
