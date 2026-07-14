@@ -61,9 +61,9 @@ class BotTRF4:
                 # if "47556722953" not in str(cpf).replace("-", "").replace(".", "") or "44827229953" not in str(cpf).replace("-", "").replace(".", ""):
                 #     continue
                 
-                nome = linha[2].strip() if len(linha) > 2 else ""
-                ddd = str(linha[13]).strip() if len(linha) > 13 else ""
-                telefone = str(linha[14]).strip() if len(linha) > 14 else ""           
+                nome = str(linha[2]).strip() if len(linha) > 2 and linha[2] is not None else ""
+                ddd = str(linha[13]).strip() if len(linha) > 13 and linha[13] is not None else ""
+                telefone = str(linha[14]).strip() if len(linha) > 14 and linha[14] is not None else ""           
                 telefone_completo = f"{ddd}{telefone}".strip()
 
                 # Valida o CPF antes de prosseguir
@@ -109,11 +109,10 @@ class BotTRF4:
                                 pass
                             
                             acoes.clicar(elemento="botaoEnviar", tipo_dado="id", timer=10)
-                            time.sleep(0.5)
                             
                             alerta_texto_encontrado = ""
                             try:
-                                alerta = navegador.switch_to.alert
+                                alerta = WebDriverWait(navegador, 3).until(EC.alert_is_present())
                                 texto = alerta.text
                                 if "captcha" in texto.lower() or "aguarde" in texto.lower():
                                     alerta.accept()
@@ -124,30 +123,37 @@ class BotTRF4:
                                 else:
                                     alerta_texto_encontrado = texto
                                     alerta.accept()
-                            except NoAlertPresentException:
+                            except Exception:
                                 pass
                             
                             time.sleep(random.uniform(0.5, 1.0))
                             return acoes, alerta_texto_encontrado
                             
-                        except UnexpectedAlertPresentException as e:
-                            texto_inesperado = ""
+                        except Exception as e:
+                            texto_inesperado = str(e)
+                            texto_alerta_puro = ""
                             try:
-                                texto_inesperado = getattr(e, 'alert_text', "")
-                                if not texto_inesperado:
-                                    texto_inesperado = navegador.switch_to.alert.text
-                                navegador.switch_to.alert.accept()
-                            except:
+                                alerta = navegador.switch_to.alert
+                                texto_alerta_puro = alerta.text
+                                texto_inesperado += " " + texto_alerta_puro
+                                alerta.accept()
+                            except Exception:
                                 pass
-                                
-                            if "captcha" in str(texto_inesperado).lower() or "aguarde" in str(texto_inesperado).lower():
-                                print(f"    [Aviso] Alerta precoce de captcha bloqueou a página. Esperando 5s... (Tentativa {tentativas_globais+1}/8)")
+                            
+                            is_captcha = "captcha" in texto_inesperado.lower() or "aguarde" in texto_inesperado.lower()
+                            is_alert = "alert" in texto_inesperado.lower() or texto_alerta_puro != ""
+
+                            if is_captcha:
+                                print(f"    [Aviso] Alerta de captcha bloqueou a página. Esperando 5s... (Tentativa {tentativas_globais+1}/8)")
                                 time.sleep(5)
                                 tentativas_globais += 1
                                 continue
-                            else:
+                            elif is_alert:
                                 # Era um alerta diferente (ex: Nenhum processo encontrado)
-                                return acoes, str(texto_inesperado)
+                                return acoes, texto_alerta_puro if texto_alerta_puro else str(texto_inesperado)
+                            else:
+                                # Era uma exceção real (ex: Timeout, Elemento não encontrado) e não um alerta
+                                raise e
                                 
                     return acoes, ""
 
@@ -162,7 +168,17 @@ class BotTRF4:
                     texto_alerta = alerta_da_pesquisa
                 
                 # Trata possível erro ao buscar o CPF 
-                erro_site = acoes._obter_elemento(elemento="divInfraBarraLocalizacao", tipo_dado="id", timer=3)
+                erro_site = False
+                if not tem_alerta:
+                    try:
+                        erro_site = acoes._obter_elemento(elemento="divInfraBarraLocalizacao", tipo_dado="id", timer=3)
+                    except Exception as e:
+                        if "alert" in str(e).lower():
+                            try:
+                                navegador.switch_to.alert.accept()
+                            except Exception:
+                                pass
+                        erro_site = True
                 
                 if not tem_alerta and not erro_site:
                     # Verifica Cloudflare
@@ -189,6 +205,18 @@ class BotTRF4:
                     if alerta_nome:
                         tem_alerta = True
                         texto_alerta = alerta_nome
+                        
+                    erro_site = False
+                    if not tem_alerta:
+                        try:
+                            erro_site = acoes._obter_elemento(elemento="divInfraBarraLocalizacao", tipo_dado="id", timer=3)
+                        except Exception as e:
+                            if "alert" in str(e).lower():
+                                try:
+                                    navegador.switch_to.alert.accept()
+                                except Exception:
+                                    pass
+                            erro_site = True
                     
                     if not tem_alerta and not erro_site:
                         cloudflare = acoes._obter_elemento(elemento="/html/body/div[1]/section/div[7]/div/form/input[1]", tipo_dado="xpath", timer=5)
