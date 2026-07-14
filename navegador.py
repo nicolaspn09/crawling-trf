@@ -81,8 +81,12 @@ class NavegadorPy:
         elemento_pagina.clear()
         time.sleep(0.1)
         
-        # Digitação otimizada: envio direto do bloco de texto para acelerar a execução
-        elemento_pagina.send_keys(valor)
+        # Digitação otimizada: envio de caractere por caractere (rápido, mas com variação)
+        # para não acionar a detecção de "bot colando" do Cloudflare
+        for caractere in str(valor):
+            elemento_pagina.send_keys(caractere)
+            time.sleep(random.uniform(0.01, 0.06))
+        
         time.sleep(random.uniform(0.1, 0.2))
 
     def aguardar_sucesso_cloudflare(self, timeout_captcha=30):
