@@ -430,7 +430,10 @@ class BotTRF4:
                     break
 
             except Exception as e:
+                import traceback
+                tb_str = traceback.format_exc()
                 print(f"[ERRO CPF] Falha no índice {indice} (Linha {indice}): {e}")
+                print(f"[PYTHON STACKTRACE]\n{tb_str}")
                 
                 if atualizar_status_callback:
                     atualizar_status_callback(indice, f"Erro na linha {indice}: {str(e)[:50]}")
