@@ -26,6 +26,7 @@ class ChromeStealthManager:
         
         # Argumentos essenciais para passar pelo Cloudflare Turnstile
         options.add_argument("--window-size=1920,1080")
+        options.add_argument("--start-maximized")
         options.add_argument("--disable-gpu")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
@@ -33,14 +34,24 @@ class ChromeStealthManager:
         # Desativa detecções comuns de automação via flags do Chrome
         options.add_argument("--disable-blink-features=AutomationControlled")
 
-        # Inicializa o driver oculto
-        # headless=True é o padrão do undetected_chromedriver para o modo de produção (invisível)
+        # Inicializa o driver (No Linux, usa monitor virtual para enganar o Cloudflare)
         if platform.system() == "Linux":
-            navegador = uc.Chrome(options=options, headless=True, browser_executable_path='/usr/bin/google-chrome')
+            try:
+                from pyvirtualdisplay import Display
+                self.display = Display(visible=0, size=(1920, 1080))
+                self.display.start()
+            except ImportError:
+                print("[AVISO] pacote pyvirtualdisplay não encontrado. Rode: pip3 install pyvirtualdisplay")
+                
+            # No Linux, tiramos o headless=True e deixamos o Xvfb (Display) fazer o trabalho de esconder a tela.
+            navegador = uc.Chrome(options=options, headless=False, browser_executable_path='/usr/bin/google-chrome', use_subprocess=True)
+            
+            # Salva a referencia do display dentro do navegador para o Python nao matar o Xvfb (Garbage Collection)
+            if hasattr(self, 'display'):
+                navegador.xvfb_display = self.display
         else:
-            navegador = uc.Chrome(options=options, headless=False)
-
-        navegador.maximize_window()
+            navegador = uc.Chrome(options=options, headless=False, use_subprocess=True)
+            navegador.maximize_window()
 
         # Captura os PIDs para manter o seu controle de encerramento
         driver_pid = navegador.browser_pid
