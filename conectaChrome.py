@@ -119,7 +119,7 @@ class ChromeStealthManager:
                 print("[AVISO] pacote pyvirtualdisplay não encontrado. Rode: pip3 install pyvirtualdisplay")
                 
             # No Linux, tiramos o headless=True e deixamos o Xvfb (Display) fazer o trabalho de esconder a tela.
-            navegador = uc.Chrome(options=options, headless=False, browser_executable_path='/usr/bin/google-chrome', use_subprocess=True)
+            navegador = uc.Chrome(options=options, headless=False, browser_executable_path='/usr/bin/google-chrome', use_subprocess=True, version_main=150)
             
             # Salva a referencia do display dentro do navegador para o Python nao matar o Xvfb (Garbage Collection)
             if hasattr(self, 'display'):
