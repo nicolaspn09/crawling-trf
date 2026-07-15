@@ -1,7 +1,12 @@
 import sys
+import os
 import psutil
+import zipfile
 import undetected_chromedriver as uc
 import platform
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class ChromeStealthManager:
     def __init__(self, caminho_arquivo=None):
@@ -23,6 +28,76 @@ class ChromeStealthManager:
             sys.stdout = open(self.caminho_arquivo, 'w')
 
         options = uc.ChromeOptions()
+        
+        proxy_host = os.environ.get("PROXY_HOST")
+        proxy_port = os.environ.get("PROXY_PORT")
+        proxy_user = os.environ.get("PROXY_USER")
+        proxy_pass = os.environ.get("PROXY_PASS")
+
+        if proxy_host and proxy_port:
+            print(f"[PROXY] Configurando proxy: {proxy_host}:{proxy_port}")
+            if proxy_user and proxy_pass:
+                # Cria extensão dinâmica para injetar autenticação de proxy
+                manifest_json = """
+                {
+                    "version": "1.0.0",
+                    "manifest_version": 2,
+                    "name": "Chrome Proxy",
+                    "permissions": [
+                        "proxy",
+                        "tabs",
+                        "unlimitedStorage",
+                        "storage",
+                        "<all_urls>",
+                        "webRequest",
+                        "webRequestBlocking"
+                    ],
+                    "background": {
+                        "scripts": ["background.js"]
+                    },
+                    "minimum_chrome_version":"22.0.0"
+                }
+                """
+                background_js = """
+                var config = {
+                        mode: "fixed_servers",
+                        rules: {
+                        singleProxy: {
+                            scheme: "http",
+                            host: "%s",
+                            port: parseInt(%s)
+                        },
+                        bypassList: ["localhost"]
+                        }
+                    };
+
+                chrome.proxy.settings.set({value: config, scope: "regular"}, function() {});
+
+                function callbackFn(details) {
+                    return {
+                        authCredentials: {
+                            username: "%s",
+                            password: "%s"
+                        }
+                    };
+                }
+
+                chrome.webRequest.onAuthRequired.addListener(
+                            callbackFn,
+                            {urls: ["<all_urls>"]},
+                            ['blocking']
+                );
+                """ % (proxy_host, proxy_port, proxy_user, proxy_pass)
+
+                pluginfile = os.path.abspath('proxy_auth_plugin.zip')
+                with zipfile.ZipFile(pluginfile, 'w') as zp:
+                    zp.writestr("manifest.json", manifest_json)
+                    zp.writestr("background.js", background_js)
+                
+                options.add_extension(pluginfile)
+            else:
+                # Proxy sem autenticação
+                options.add_argument(f'--proxy-server=http://{proxy_host}:{proxy_port}')
         
         # Argumentos essenciais para passar pelo Cloudflare Turnstile
         options.add_argument("--window-size=1920,1080")
