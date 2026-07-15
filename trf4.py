@@ -120,7 +120,7 @@ class BotTRF4:
                             
                             alerta_texto_encontrado = ""
                             try:
-                                alerta = WebDriverWait(navegador, 3).until(EC.alert_is_present())
+                                alerta = WebDriverWait(navegador, 15).until(EC.alert_is_present())
                                 texto = alerta.text
                                 if "captcha" in texto.lower() or "aguarde" in texto.lower():
                                     alerta.accept()
