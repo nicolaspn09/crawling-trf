@@ -476,13 +476,48 @@ class BotTRF4:
                 # nós matamos o navegador atual e abrimos um novinho em folha!
                 try:
                     print(f"    [RESET] Reiniciando o navegador para limpar falhas e alertas residuais...")
-                    navegador.quit()
+                    try:
+                        if hasattr(navegador, 'xvfb_display'):
+                            navegador.xvfb_display.stop()
+                    except:
+                        pass
+                    try:
+                        navegador.quit()
+                    except:
+                        pass
+                    try:
+                        import os, signal
+                        for pid in firefox_pids:
+                            try:
+                                os.kill(pid, signal.SIGKILL)
+                            except:
+                                pass
+                    except:
+                        pass
+                    
                     time.sleep(2)
                     navegador, firefox_pids = self._inicia_navegador()
                 except Exception as ex_reset:
                     print(f"    [AVISO] Falha ao tentar reiniciar o navegador: {ex_reset}")
         db.fechar_conexao()
-        navegador.quit()
+        try:
+            if hasattr(navegador, 'xvfb_display'):
+                navegador.xvfb_display.stop()
+        except:
+            pass
+        try:
+            import os, signal
+            for pid in firefox_pids:
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                except:
+                    pass
+        except:
+            pass
+        try:
+            navegador.quit()
+        except:
+            pass
 
 if __name__ == "__main__":
     BASE_DIR = Path(__file__).resolve().parent
