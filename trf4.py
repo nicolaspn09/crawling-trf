@@ -116,23 +116,39 @@ class BotTRF4:
                             except Exception:
                                 pass
                             
-                            acoes.clicar(elemento="botaoEnviar", tipo_dado="id", timer=10)
-                            
                             alerta_texto_encontrado = ""
-                            try:
-                                alerta = WebDriverWait(navegador, 15).until(EC.alert_is_present())
-                                texto = alerta.text
-                                if "captcha" in texto.lower() or "aguarde" in texto.lower():
-                                    alerta.accept()
-                                    print(f"    [Aviso] Alerta de captcha pós-clique. Esperando 5s... (Tentativa {tentativas_globais+1}/8)")
-                                    time.sleep(5)
-                                    tentativas_globais += 1
-                                    continue
-                                else:
-                                    alerta_texto_encontrado = texto
-                                    alerta.accept()
-                            except Exception:
-                                pass
+                            clicou_com_sucesso = False
+                            
+                            for tentativa_clique in range(6):
+                                acoes.clicar(elemento="botaoEnviar", tipo_dado="id", timer=10)
+                                
+                                try:
+                                    alerta = WebDriverWait(navegador, 4).until(EC.alert_is_present())
+                                    texto = alerta.text
+                                    if "captcha" in texto.lower() or "aguarde" in texto.lower():
+                                        alerta.accept()
+                                        print(f"    [Aviso] Aguardando captcha resolver sozinho... (Click {tentativa_clique+1}/6)")
+                                        try:
+                                            # Tenta interagir ativamente com o Cloudflare se houver checkbox na tela
+                                            acoes.aguardar_sucesso_cloudflare(timeout_captcha=10)
+                                        except Exception:
+                                            pass
+                                        time.sleep(3)
+                                        # NÃO usamos continue para o while principal, só volta o laço for
+                                    else:
+                                        alerta_texto_encontrado = texto
+                                        alerta.accept()
+                                        clicou_com_sucesso = True
+                                        break
+                                except Exception:
+                                    # Se não houver alerta após o clique, deu tudo certo!
+                                    clicou_com_sucesso = True
+                                    break
+                            
+                            if not clicou_com_sucesso:
+                                # Se tentou 6 vezes clicar e as 6 deu captcha, então sim a gente recarrega
+                                tentativas_globais += 1
+                                continue
                             
                             time.sleep(random.uniform(0.5, 1.0))
                             return acoes, alerta_texto_encontrado
@@ -453,12 +469,7 @@ class BotTRF4:
                     if atualizar_status_callback:
                         atualizar_status_callback(indice, f"Erro na linha {indice}: {str(e)[:50]}")
                     status = f"Erro na linha {indice}: {str(e)}"
-                    db.atualizar_status_processamento(
-                        tabela="Pesquisa_TRF4",
-                        cliente_id=cliente_id,
-                        status_verificacao=status,
-                        detalhes=status
-                    )
+                    # db.atualizar_status_processamento removido por ser incompatível com a atual estrutura do BD
 
                 # Resiliência Máxima: Se o script chegou aqui, o site pode estar com alertas presos
                 # ou travado no Cloudflare. Para não estragar os próximos CPFs (efeito dominó),
