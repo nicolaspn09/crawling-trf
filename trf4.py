@@ -322,7 +322,7 @@ class BotTRF4:
                     db.inserir_oportunidade(cliente_id, "BRANCO - NADA CONSTA", "Lista de processos vazia", "Descartado")
                     indice_atual += 1
                     tentativas_cpf_global = 0
-                    break
+                    continue
 
                 # Removemos o limitador da POC, varrendo TODOS os processos.
                 processos = lista_processos
@@ -483,7 +483,7 @@ class BotTRF4:
                     
                 indice_atual += 1
                 tentativas_cpf_global = 0
-                break
+                continue
 
             except Exception as e:
                 deve_quebrar_loop = False
@@ -534,7 +534,7 @@ class BotTRF4:
                     print(f"    [AVISO] Falha ao tentar reiniciar o navegador: {ex_reset}")
                     
                 if deve_quebrar_loop:
-                    break
+                    continue
         db.fechar_conexao()
         try:
             if hasattr(navegador, 'xvfb_display'):
