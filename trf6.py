@@ -232,8 +232,8 @@ class BotTRF6:
 
                     time.sleep(random.uniform(1.0, 2.0))
 
-        except Exception as e:
-            print(e)
+            except Exception as e:
+                print(e)
 
         finally:
             print("\n[POC STATUS] Execução finalizada. Banco atualizado.")

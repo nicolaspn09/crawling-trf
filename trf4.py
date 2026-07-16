@@ -320,7 +320,9 @@ class BotTRF4:
                     if atualizar_status_callback:
                         atualizar_status_callback(indice, "BRANCO - NADA CONSTA", "", "")
                     db.inserir_oportunidade(cliente_id, "BRANCO - NADA CONSTA", "Lista de processos vazia", "Descartado")
-                    continue
+                    indice_atual += 1
+                    tentativas_cpf_global = 0
+                    break
 
                 # Removemos o limitador da POC, varrendo TODOS os processos.
                 processos = lista_processos
@@ -478,6 +480,10 @@ class BotTRF4:
                     # quebramos o loop para não processar os demais processos deste CPF!
                     print(f"       -> Tese localizada! Parando de analisar processos para o CPF {cpf}.")
                     break
+                    
+                indice_atual += 1
+                tentativas_cpf_global = 0
+                break
 
             except Exception as e:
                 import traceback
