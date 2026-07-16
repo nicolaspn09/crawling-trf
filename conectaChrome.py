@@ -192,6 +192,16 @@ class ChromeStealthManager:
         proxy_pass = os.environ.get("PROXY_PASS")
 
         if proxy_host and proxy_port and proxy_user and proxy_pass:
+            # IPRoyal Residential: Para evitar que o IP mude a cada conexao TCP (o que quebra
+            # a validacao do Cloudflare e causa ERR_TUNNEL_CONNECTION_FAILED),
+            # precisamos fixar a sessao anexando '_session-xyz' na senha.
+            if "iproyal" in proxy_host.lower() and "_session-" not in proxy_pass:
+                import random
+                import string
+                session_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+                proxy_pass = f"{proxy_pass}_session-{session_id}"
+                print(f"[PROXY] Fixando Sessao IPRoyal: {session_id} para evitar ERR_TUNNEL_CONNECTION_FAILED")
+
             print(f"[PROXY] Upstream: {proxy_host}:{proxy_port}")
             print(f"[PROXY] User: {proxy_user}, Pass: {proxy_pass[:4]}***")
             

@@ -275,8 +275,10 @@ class BotTRF4:
                         except UnexpectedAlertPresentException as e:
                             print(f"    [ERRO] Alerta inesperado detectado tardiamente durante varredura: {e.alert_text}")
                             try:
-                                navegador.save_screenshot(f"erro_captcha_{cpf_limpo}.png")
-                                print(f"    [DEBUG] Screenshot salvo como erro_captcha_{cpf_limpo}.png")
+                                import os
+                                script_dir = os.path.dirname(os.path.abspath(__file__))
+                                print(f"    [DEBUG] Screenshot salvo como {os.path.join(script_dir, f'erro_captcha_{cpf_limpo}.png')}")
+                                navegador.save_screenshot(os.path.join(script_dir, f"erro_captcha_{cpf_limpo}.png"))
                             except: pass
                             raise ValueError(f"Alerta tardio bloqueou a página: {e.alert_text}")
                             
