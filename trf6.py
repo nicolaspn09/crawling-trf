@@ -175,7 +175,20 @@ class BotTRF6:
                         continue
                         
                     # VALIDAÇÃO 2: Verificação do assunto / tese de Atividade Concomitante
-                    termos_tese = ["CONCOMITANTE", "ART. 32", "LEI 8.213", "TEMA 1070"]
+                    termos_tese = [
+                        "ATIVIDADES CONCOMITANTES", "CONTRIBUIÇÕES CONCOMITANTES", "ATIVIDADE PRINCIPAL", 
+                        "ATIVIDADE SECUNDÁRIA", "EXERCÍCIO SIMULTÂNEO DE ATIVIDADES", "MÚLTIPLOS VÍNCULOS EMPREGATÍCIOS", 
+                        "MÚLTIPLAS ATIVIDADES REMUNERADAS", "SALÁRIO DE CONTRIBUIÇÃO", "SOMA DOS SALÁRIOS DE CONTRIBUIÇÃO", 
+                        "INCLUSÃO DE SALÁRIOS DE CONTRIBUIÇÃO", "CÔMPUTO DE CONTRIBUIÇÕES", "REVISÃO DE APOSENTADORIA", 
+                        "REVISÃO DE BENEFÍCIO", "REVISÃO DA RMI", "RENDA MENSAL INICIAL (RMI)", "RECÁLCULO DA RMI", 
+                        "RECÁLCULO DO BENEFÍCIO", "SALÁRIO DE BENEFÍCIO", "CÁLCULO DO BENEFÍCIO PREVIDENCIÁRIO", 
+                        "REVISÃO DO CÁLCULO DA APOSENTADORIA", "ART. 32 DA LEI Nº 8.213/91", "REVISÃO PREVIDENCIÁRIA", 
+                        "DIFERENÇAS VENCIDAS E VINCENDAS", "PAGAMENTO DE DIFERENÇAS DECORRENTES DA REVISÃO", 
+                        "REFLEXOS FINANCEIROS DA REVISÃO", "REVISÃO DO BENEFÍCIO NB", "REVISÃO DE RENDA MENSAL INICIAL", 
+                        "REVISÃO DE APOSENTADORIA", "CÁLCULO DE BENEFÍCIO PREVIDENCIÁRIO", "TEMPO DE CONTRIBUIÇÃO", 
+                        "REAJUSTES E REVISÕES ESPECÍFICAS", "ALTERAÇÃO DO COEFICIENTE DE CÁLCULO", "BENEFÍCIOS EM ESPÉCIE", 
+                        "DIREITO PREVIDENCIÁRIO"
+                    ]
                     possui_tese = any(termo in texto_processo for termo in termos_tese)
                     
                     if not possui_tese:

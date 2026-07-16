@@ -132,6 +132,7 @@ class BotTRF4:
                                     texto = alerta.text
                                     if "captcha" in texto.lower() or "aguarde" in texto.lower():
                                         alerta.accept()
+                                        time.sleep(4)
                                         print(f"    [Aviso] Aguardando captcha resolver sozinho... (Click {tentativa_clique+1}/6)")
                                         try:
                                             # Tenta interagir ativamente com o Cloudflare se houver checkbox na tela
@@ -274,13 +275,25 @@ class BotTRF4:
                             links_conteudo = navegador.find_elements(By.XPATH, "//div[@id='divConteudo']/a")
                         except UnexpectedAlertPresentException as e:
                             print(f"    [ERRO] Alerta inesperado detectado tardiamente durante varredura: {e.alert_text}")
-                            try:
-                                import os
-                                script_dir = os.path.dirname(os.path.abspath(__file__))
-                                print(f"    [DEBUG] Screenshot salvo como {os.path.join(script_dir, f'erro_captcha_{cpf_limpo}.png')}")
-                                navegador.save_screenshot(os.path.join(script_dir, f"erro_captcha_{cpf_limpo}.png"))
-                            except: pass
-                            raise ValueError(f"Alerta tardio bloqueou a página: {e.alert_text}")
+                            
+                            texto_alerta = str(e.alert_text).lower()
+                            if "captcha" in texto_alerta or "aguarde" in texto_alerta:
+                                print("    [DEBUG] Resolvendo captcha tardio do Cloudflare...")
+                                try:
+                                    navegador.switch_to.alert.accept()
+                                except: pass
+                                time.sleep(4)
+                                acoes.aguardar_sucesso_cloudflare(timeout_captcha=20)
+                                time.sleep(5)
+                                # Tenta buscar os links novamente apos resolver o captcha
+                                links_conteudo = navegador.find_elements(By.XPATH, "//div[@id='divConteudo']/a")
+                            else:
+                                try:
+                                    import os
+                                    script_dir = os.path.dirname(os.path.abspath(__file__))
+                                    navegador.save_screenshot(os.path.join(script_dir, f"erro_captcha_{cpf_limpo}.png"))
+                                except: pass
+                                raise ValueError(f"Alerta tardio bloqueou a página: {e.alert_text}")
                             
                         is_homonimos = any("CPF/CNPJ:" in l.text for l in links_conteudo)
                         
@@ -390,7 +403,20 @@ class BotTRF4:
                         aba_processo = navegador.current_window_handle
                         navegador.switch_to.new_window('tab')
                         
-                        termos_tese = ["ATIVIDADE CONCOMITANTE", "ATIVIDADES CONCOMITANTES", "CONCOMITANTE", "CONCOMITANTES", "MULTIPLICADOR", "CONCOMITÂNCIA"]
+                        termos_tese = [
+                            "ATIVIDADES CONCOMITANTES", "CONTRIBUIÇÕES CONCOMITANTES", "ATIVIDADE PRINCIPAL", 
+                            "ATIVIDADE SECUNDÁRIA", "EXERCÍCIO SIMULTÂNEO DE ATIVIDADES", "MÚLTIPLOS VÍNCULOS EMPREGATÍCIOS", 
+                            "MÚLTIPLAS ATIVIDADES REMUNERADAS", "SALÁRIO DE CONTRIBUIÇÃO", "SOMA DOS SALÁRIOS DE CONTRIBUIÇÃO", 
+                            "INCLUSÃO DE SALÁRIOS DE CONTRIBUIÇÃO", "CÔMPUTO DE CONTRIBUIÇÕES", "REVISÃO DE APOSENTADORIA", 
+                            "REVISÃO DE BENEFÍCIO", "REVISÃO DA RMI", "RENDA MENSAL INICIAL (RMI)", "RECÁLCULO DA RMI", 
+                            "RECÁLCULO DO BENEFÍCIO", "SALÁRIO DE BENEFÍCIO", "CÁLCULO DO BENEFÍCIO PREVIDENCIÁRIO", 
+                            "REVISÃO DO CÁLCULO DA APOSENTADORIA", "ART. 32 DA LEI Nº 8.213/91", "REVISÃO PREVIDENCIÁRIA", 
+                            "DIFERENÇAS VENCIDAS E VINCENDAS", "PAGAMENTO DE DIFERENÇAS DECORRENTES DA REVISÃO", 
+                            "REFLEXOS FINANCEIROS DA REVISÃO", "REVISÃO DO BENEFÍCIO NB", "REVISÃO DE RENDA MENSAL INICIAL", 
+                            "REVISÃO DE APOSENTADORIA", "CÁLCULO DE BENEFÍCIO PREVIDENCIÁRIO", "TEMPO DE CONTRIBUIÇÃO", 
+                            "REAJUSTES E REVISÕES ESPECÍFICAS", "ALTERAÇÃO DO COEFICIENTE DE CÁLCULO", "BENEFÍCIOS EM ESPÉCIE", 
+                            "DIREITO PREVIDENCIÁRIO"
+                        ]
                         
                         for link in links_sentencas:
                             navegador.get(link)
