@@ -100,6 +100,15 @@ class NavegadorPy:
         Detecta o iframe do Cloudflare Turnstile, aguarda a validação passiva
         ficar verde ('Sucesso!') e retorna o controle para a página principal.
         """
+        try:
+            iframes = self.navegador.find_elements(By.TAG_NAME, "iframe")
+            print(f"[DEBUG CAPTCHA] Encontrados {len(iframes)} iframes na tela.")
+            for i, iframe in enumerate(iframes):
+                src = iframe.get_attribute('src')
+                print(f"   Iframe {i}: src={src}")
+        except Exception as e:
+            print(f"[DEBUG CAPTCHA] Falha ao listar iframes: {e}")
+
         # 1. Procura o iframe do Cloudflare instalado na página
         try:
             iframe_cloudflare = WebDriverWait(self.navegador, timeout_captcha).until(
