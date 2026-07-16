@@ -135,6 +135,7 @@ class BotTRF4:
                                         print(f"    [Aviso] Aguardando captcha resolver sozinho... (Click {tentativa_clique+1}/6)")
                                         try:
                                             # Tenta interagir ativamente com o Cloudflare se houver checkbox na tela
+                                            # IMPORTANTE: No eproc, quando dá esse alerta, a página atualiza pra uma página de captcha do Cloudflare
                                             acoes.aguardar_sucesso_cloudflare(timeout_captcha=20)
                                         except Exception:
                                             pass
