@@ -187,7 +187,8 @@ class ChromeStealthManager:
         #   - --load-extension + MV3 carrega mas NÃO aplica proxy (IP=VPS)
         #   - selenium-wire é incompatível com Python 3.12
         # =====================================================================
-        proxy_host = os.environ.get("PROXY_HOST")
+        proxy_host = None # Removido o proxy para rodar gratis no IP da VPS!
+        # proxy_host = os.environ.get("PROXY_HOST")
         proxy_port = os.environ.get("PROXY_PORT")
         proxy_user = os.environ.get("PROXY_USER")
         proxy_pass = os.environ.get("PROXY_PASS")
