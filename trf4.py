@@ -228,6 +228,11 @@ class BotTRF4:
                 # DUPLA CHECAGEM: Se não encontrou pelo CPF, tenta pelo Nome
                 if tem_alerta or not lista_processos:
                     print(f"[RESULTADO CPF] CPF {cpf}: Nada Consta ({texto_alerta}). Tentando dupla checagem pelo NOME: {nome}")
+                    # Delay anti-captcha: o Cloudflare do TRF4 bloqueia requisições
+                    # em sequência rápida. Esperar entre 3-8s evita o rate-limiting.
+                    delay = random.uniform(3.0, 8.0)
+                    print(f"    [ANTI-CAPTCHA] Aguardando {delay:.1f}s antes da dupla checagem...")
+                    time.sleep(delay)
                     acoes, alerta_nome = fazer_pesquisa_eproc(nome, indice_origem=2)
                     
                     tem_alerta, texto_alerta = self._tratar_alerta_popup(navegador, timeout=2)

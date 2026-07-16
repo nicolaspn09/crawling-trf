@@ -3,6 +3,8 @@ import os
 import json
 import psutil
 import tempfile
+import random
+import string
 import undetected_chromedriver as uc
 import platform
 from dotenv import load_dotenv
@@ -111,8 +113,15 @@ chrome.webRequest.onAuthRequired.addListener(
         proxy_pass = os.environ.get("PROXY_PASS")
 
         if proxy_host and proxy_port and proxy_user and proxy_pass:
-            print(f"[PROXY] Configurando proxy: {proxy_host}:{proxy_port}")
-            ext_dir = self._criar_extensao_proxy(proxy_host, proxy_port, proxy_user, proxy_pass)
+            # =====================================================================
+            # ROTAÇÃO DE IP: Gera um session_id aleatório a cada browser novo.
+            # IPRoyal usa o formato: user_session-XXXXX para criar sessões sticky
+            # únicas. Sem isso, o mesmo IP é reutilizado indefinidamente.
+            # =====================================================================
+            session_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+            proxy_user_rotated = f"{proxy_user}_session-{session_id}"
+            print(f"[PROXY] Configurando proxy: {proxy_host}:{proxy_port} (sessão: {session_id})")
+            ext_dir = self._criar_extensao_proxy(proxy_host, proxy_port, proxy_user_rotated, proxy_pass)
             options.add_argument(f'--load-extension={ext_dir}')
         elif proxy_host and proxy_port:
             # Proxy sem autenticação (não precisa de extensão)
