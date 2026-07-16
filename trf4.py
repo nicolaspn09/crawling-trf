@@ -486,6 +486,7 @@ class BotTRF4:
                 break
 
             except Exception as e:
+                deve_quebrar_loop = False
                 import traceback
                 tb_str = traceback.format_exc()
                 print(f"[ERRO CPF] Falha no índice {indice} (Linha {indice}): {e}")
@@ -496,12 +497,12 @@ class BotTRF4:
                     tentativas_cpf_global += 1
                     print(f"    [RETRY] Tentativa {tentativas_cpf_global}/5 para o CPF {cpf}...")
                 else:
+                    deve_quebrar_loop = True
                     indice_atual += 1
                     tentativas_cpf_global = 0
                     if atualizar_status_callback:
                         atualizar_status_callback(indice, f"Erro na linha {indice}: {str(e)[:50]}")
                     status = f"Erro na linha {indice}: {str(e)}"
-                    # db.atualizar_status_processamento removido por ser incompatível com a atual estrutura do BD
 
                 # Resiliência Máxima: Se o script chegou aqui, o site pode estar com alertas presos
                 # ou travado no Cloudflare. Para não estragar os próximos CPFs (efeito dominó),
@@ -531,6 +532,9 @@ class BotTRF4:
                     navegador, firefox_pids = self._inicia_navegador()
                 except Exception as ex_reset:
                     print(f"    [AVISO] Falha ao tentar reiniciar o navegador: {ex_reset}")
+                    
+                if deve_quebrar_loop:
+                    break
         db.fechar_conexao()
         try:
             if hasattr(navegador, 'xvfb_display'):
