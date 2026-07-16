@@ -233,6 +233,14 @@ class ChromeStealthManager:
         # Desativa detecções comuns de automação via flags do Chrome
         options.add_argument("--disable-blink-features=AutomationControlled")
 
+        # [ECONOMIA DE BANDA] Desativa carregamento de imagens para nao gastar o proxy residencial!
+        # Isso economiza cerca de 90% do consumo de GB por consulta.
+        prefs = {
+            "profile.managed_default_content_settings.images": 2,
+            # "profile.managed_default_content_settings.stylesheets": 2, # Pode quebrar o cloudflare se desativar CSS
+        }
+        options.add_experimental_option("prefs", prefs)
+
         # Inicializa o driver (No Linux, usa monitor virtual para enganar o Cloudflare)
         if platform.system() == "Linux":
             try:
