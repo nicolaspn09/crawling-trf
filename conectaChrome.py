@@ -1,8 +1,6 @@
 import sys
 import os
 import psutil
-import zipfile
-import undetected_chromedriver as uc
 import platform
 from dotenv import load_dotenv
 
@@ -27,78 +25,42 @@ class ChromeStealthManager:
         if self.caminho_arquivo:
             sys.stdout = open(self.caminho_arquivo, 'w')
 
-        options = uc.ChromeOptions()
-        
+        # =====================================================================
+        # PROXY AUTENTICADO VIA SELENIUM-WIRE
+        # O undetected_chromedriver NÃO suporta extensões de proxy via
+        # add_extension (são silenciosamente ignoradas). Além disso, Manifest V2
+        # foi removido do Chrome 127+.
+        # A solução é usar selenium-wire, que cria um proxy local intermediário
+        # e injeta a autenticação de forma transparente, sem extensão nenhuma.
+        # =====================================================================
         proxy_host = os.environ.get("PROXY_HOST")
         proxy_port = os.environ.get("PROXY_PORT")
         proxy_user = os.environ.get("PROXY_USER")
         proxy_pass = os.environ.get("PROXY_PASS")
 
+        seleniumwire_options = {}
+        usar_seleniumwire = False
+
         if proxy_host and proxy_port:
-            print(f"[PROXY] Configurando proxy: {proxy_host}:{proxy_port}")
-            if proxy_user and proxy_pass:
-                # Cria extensão dinâmica para injetar autenticação de proxy
-                manifest_json = """
-                {
-                    "version": "1.0.0",
-                    "manifest_version": 2,
-                    "name": "Chrome Proxy",
-                    "permissions": [
-                        "proxy",
-                        "tabs",
-                        "unlimitedStorage",
-                        "storage",
-                        "<all_urls>",
-                        "webRequest",
-                        "webRequestBlocking"
-                    ],
-                    "background": {
-                        "scripts": ["background.js"]
-                    },
-                    "minimum_chrome_version":"22.0.0"
+            proxy_url = f"http://{proxy_user}:{proxy_pass}@{proxy_host}:{proxy_port}" if proxy_user and proxy_pass else f"http://{proxy_host}:{proxy_port}"
+            print(f"[PROXY] Configurando proxy via selenium-wire: {proxy_host}:{proxy_port}")
+            seleniumwire_options = {
+                'proxy': {
+                    'http': proxy_url,
+                    'https': proxy_url,
+                    'no_proxy': 'localhost,127.0.0.1'
                 }
-                """
-                background_js = """
-                var config = {
-                        mode: "fixed_servers",
-                        rules: {
-                        singleProxy: {
-                            scheme: "http",
-                            host: "%s",
-                            port: parseInt(%s)
-                        },
-                        bypassList: ["localhost"]
-                        }
-                    };
+            }
+            usar_seleniumwire = True
 
-                chrome.proxy.settings.set({value: config, scope: "regular"}, function() {});
+        # Importa o driver correto baseado na disponibilidade do proxy
+        if usar_seleniumwire:
+            from seleniumwire import undetected_chromedriver as uc
+        else:
+            import undetected_chromedriver as uc
 
-                function callbackFn(details) {
-                    return {
-                        authCredentials: {
-                            username: "%s",
-                            password: "%s"
-                        }
-                    };
-                }
+        options = uc.ChromeOptions()
 
-                chrome.webRequest.onAuthRequired.addListener(
-                            callbackFn,
-                            {urls: ["<all_urls>"]},
-                            ['blocking']
-                );
-                """ % (proxy_host, proxy_port, proxy_user, proxy_pass)
-
-                pluginfile = os.path.abspath('proxy_auth_plugin.zip')
-                with zipfile.ZipFile(pluginfile, 'w') as zp:
-                    zp.writestr("manifest.json", manifest_json)
-                    zp.writestr("background.js", background_js)
-                
-                options.add_extension(pluginfile)
-            else:
-                # Proxy sem autenticação
-                options.add_argument(f'--proxy-server=http://{proxy_host}:{proxy_port}')
-        
         # Argumentos essenciais para passar pelo Cloudflare Turnstile
         options.add_argument("--window-size=1920,1080")
         options.add_argument("--start-maximized")
@@ -119,14 +81,51 @@ class ChromeStealthManager:
                 print("[AVISO] pacote pyvirtualdisplay não encontrado. Rode: pip3 install pyvirtualdisplay")
                 
             # No Linux, tiramos o headless=True e deixamos o Xvfb (Display) fazer o trabalho de esconder a tela.
-            navegador = uc.Chrome(options=options, headless=False, browser_executable_path='/usr/bin/google-chrome', use_subprocess=True, version_main=150)
+            if usar_seleniumwire:
+                navegador = uc.Chrome(
+                    options=options,
+                    headless=False,
+                    browser_executable_path='/usr/bin/google-chrome',
+                    use_subprocess=True,
+                    version_main=150,
+                    seleniumwire_options=seleniumwire_options
+                )
+            else:
+                navegador = uc.Chrome(
+                    options=options,
+                    headless=False,
+                    browser_executable_path='/usr/bin/google-chrome',
+                    use_subprocess=True,
+                    version_main=150
+                )
             
             # Salva a referencia do display dentro do navegador para o Python nao matar o Xvfb (Garbage Collection)
             if hasattr(self, 'display'):
                 navegador.xvfb_display = self.display
         else:
-            navegador = uc.Chrome(options=options, headless=False, use_subprocess=True)
+            if usar_seleniumwire:
+                navegador = uc.Chrome(
+                    options=options,
+                    headless=False,
+                    use_subprocess=True,
+                    seleniumwire_options=seleniumwire_options
+                )
+            else:
+                navegador = uc.Chrome(options=options, headless=False, use_subprocess=True)
             navegador.maximize_window()
+
+        # Validação: Confirma se o proxy está de fato ativo testando o IP de saída
+        if usar_seleniumwire:
+            try:
+                import requests
+                test_proxy = {
+                    'http': seleniumwire_options['proxy']['http'],
+                    'https': seleniumwire_options['proxy']['https']
+                }
+                resp = requests.get('https://ipv4.icanhazip.com', proxies=test_proxy, timeout=10)
+                print(f"[PROXY] IP de saída confirmado via proxy: {resp.text.strip()}")
+            except Exception as e:
+                print(f"[PROXY] AVISO - Falha ao validar IP de saída do proxy: {e}")
 
         # Captura os PIDs para manter o seu controle de encerramento
         driver_pid = navegador.browser_pid
