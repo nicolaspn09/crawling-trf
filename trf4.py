@@ -273,6 +273,10 @@ class BotTRF4:
                             links_conteudo = navegador.find_elements(By.XPATH, "//div[@id='divConteudo']/a")
                         except UnexpectedAlertPresentException as e:
                             print(f"    [ERRO] Alerta inesperado detectado tardiamente durante varredura: {e.alert_text}")
+                            try:
+                                navegador.save_screenshot(f"erro_captcha_{cpf_limpo}.png")
+                                print(f"    [DEBUG] Screenshot salvo como erro_captcha_{cpf_limpo}.png")
+                            except: pass
                             raise ValueError(f"Alerta tardio bloqueou a página: {e.alert_text}")
                             
                         is_homonimos = any("CPF/CNPJ:" in l.text for l in links_conteudo)

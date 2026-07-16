@@ -122,8 +122,9 @@ class NavegadorPy:
                 time.sleep(2)
             except Exception as e:
                 print(f"[Aviso] Falha ao tentar clicar no Cloudflare interno: {e}")
-        except Exception:
+        except Exception as e:
             # Se não achar o iframe, pode ser que o Cloudflare não tenha disparado nesta requisição
+            print(f"[CLOUDFLARE] Iframe não encontrado em {timeout_captcha}s. Erro: {e}")
             return
 
         # 2. Aguarda até que o elemento com id 'success-text' contenha a palavra 'Sucesso!'
