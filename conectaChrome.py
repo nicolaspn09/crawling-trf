@@ -2,19 +2,161 @@ import sys
 import os
 import json
 import psutil
-import tempfile
 import random
 import string
+import socket
+import select
+import base64
+import threading
+import socketserver
 import undetected_chromedriver as uc
 import platform
 from dotenv import load_dotenv
 
 load_dotenv()
 
+# =============================================================================
+# LOCAL PROXY FORWARDER (stdlib puro, zero dependências externas)
+#
+# Histórico de falhas ao tentar proxy no Chrome:
+# 1. add_extension(.zip MV2) → Ignorado silenciosamente pelo UC
+# 2. selenium-wire → Incompatível com Python 3.12 (pyOpenSSL)
+# 3. --load-extension (MV3) → Extensão carrega mas NÃO aplica proxy (IP=VPS)
+#
+# Solução definitiva: proxy local em 127.0.0.1 que faz relay autenticado.
+# Chrome conecta em localhost (sem auth) → ForwardProxy injeta auth → IPRoyal
+# =============================================================================
+
+class _ProxyHandler(socketserver.BaseRequestHandler):
+    """Handler que recebe conexões do Chrome e injeta auth no upstream."""
+    
+    upstream_host = ''
+    upstream_port = 0
+    upstream_auth_header = b''  # Proxy-Authorization: Basic xxx
+
+    def handle(self):
+        try:
+            client = self.request
+            client.settimeout(90)
+            
+            # Lê a primeira requisição do Chrome (ex: "CONNECT google.com:443 HTTP/1.1\r\n")
+            data = b''
+            while b'\r\n\r\n' not in data:
+                chunk = client.recv(8192)
+                if not chunk:
+                    return
+                data += chunk
+
+            # Separa a primeira linha das headers
+            header_end = data.index(b'\r\n\r\n')
+            request_headers = data[:header_end]
+            request_body = data[header_end + 4:]
+            
+            lines = request_headers.split(b'\r\n')
+            first_line = lines[0]  # Ex: "CONNECT google.com:443 HTTP/1.1"
+            
+            # Conecta no proxy upstream (IPRoyal)
+            upstream = socket.create_connection(
+                (self.upstream_host, self.upstream_port), timeout=30
+            )
+            upstream.settimeout(90)
+            
+            # Reconstrói as headers INJETANDO a autenticação do proxy
+            new_headers = [first_line, self.upstream_auth_header]
+            for line in lines[1:]:
+                # Remove qualquer auth existente pra evitar duplicação
+                if not line.lower().startswith(b'proxy-authorization'):
+                    new_headers.append(line)
+            
+            upstream.sendall(b'\r\n'.join(new_headers) + b'\r\n\r\n' + request_body)
+            
+            if first_line.startswith(b'CONNECT'):
+                # HTTPS: Lê resposta do upstream, envia "200" pro Chrome, e faz tunnel
+                response = b''
+                while b'\r\n\r\n' not in response:
+                    chunk = upstream.recv(4096)
+                    if not chunk:
+                        return
+                    response += chunk
+                
+                status_line = response.split(b'\r\n')[0]
+                if b'200' in status_line:
+                    client.sendall(b'HTTP/1.1 200 Connection Established\r\n\r\n')
+                    self._tunnel(client, upstream)
+                else:
+                    # Upstream negou a conexão (403 etc)
+                    client.sendall(response)
+            else:
+                # HTTP: Relay simples da resposta
+                while True:
+                    chunk = upstream.recv(16384)
+                    if not chunk:
+                        break
+                    client.sendall(chunk)
+            
+            upstream.close()
+        except Exception:
+            pass
+
+    def _tunnel(self, client, upstream):
+        """Relay bidirecional de bytes (tunnel TCP transparente)."""
+        sockets = [client, upstream]
+        while True:
+            try:
+                readable, _, errors = select.select(sockets, [], sockets, 60)
+                if errors or not readable:
+                    break
+                for s in readable:
+                    data = s.recv(16384)
+                    if not data:
+                        return
+                    target = upstream if s is client else client
+                    target.sendall(data)
+            except Exception:
+                break
+
+
+class _ThreadedProxyServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+
+
+class LocalProxyForwarder:
+    """
+    Inicia um proxy HTTP local (127.0.0.1) que repassa todo tráfego
+    para o proxy upstream autenticado (IPRoyal).
+    
+    Chrome conecta aqui sem auth → este servidor injeta Proxy-Authorization
+    → encaminha para geo.iproyal.com:12321.
+    """
+    def __init__(self, upstream_host, upstream_port, upstream_user, upstream_pass):
+        auth_b64 = base64.b64encode(f"{upstream_user}:{upstream_pass}".encode()).decode()
+        
+        # Cria handler com os dados do upstream
+        handler = type('ProxyHandler', (_ProxyHandler,), {
+            'upstream_host': upstream_host,
+            'upstream_port': int(upstream_port),
+            'upstream_auth_header': f'Proxy-Authorization: Basic {auth_b64}'.encode(),
+        })
+        
+        # Bind em porta aleatória
+        self.server = _ThreadedProxyServer(('127.0.0.1', 0), handler)
+        self.port = self.server.server_address[1]
+        
+        # Roda em thread daemon (morre junto com o processo principal)
+        self._thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self._thread.start()
+        
+        print(f"[PROXY] Forwarder local iniciado em 127.0.0.1:{self.port}")
+    
+    def stop(self):
+        self.server.shutdown()
+
+
 class ChromeStealthManager:
     def __init__(self, caminho_arquivo=None):
         self.caminho_arquivo = caminho_arquivo
-        self._proxy_ext_dir = None
+        self._proxy_forwarder = None
 
     def find_chrome_processes(self, ppid):
         """Encontra subprocessos do Chrome disparados pelo driver."""
@@ -27,70 +169,6 @@ class ChromeStealthManager:
                 pass
         return chrome_pids
 
-    def _criar_extensao_proxy(self, host, port, user, password):
-        """
-        Cria uma extensão Chrome DESCOMPACTADA (Manifest V3) para autenticação de proxy.
-        
-        Diferente do add_extension() que é ignorado pelo undetected_chromedriver,
-        o --load-extension com diretório descompactado funciona porque é apenas
-        uma flag nativa do Chrome, sem interferência do patching do UC.
-        """
-        ext_dir = tempfile.mkdtemp(prefix='proxy_ext_')
-        self._proxy_ext_dir = ext_dir
-
-        manifest = {
-            "version": "1.0.0",
-            "manifest_version": 3,
-            "name": "Proxy Auth Helper",
-            "permissions": ["proxy", "webRequest", "webRequestAuthProvider"],
-            "host_permissions": ["<all_urls>"],
-            "background": {
-                "service_worker": "background.js"
-            },
-            "minimum_chrome_version": "108"
-        }
-
-        background_js = """
-// Configura o proxy
-chrome.proxy.settings.set({
-    value: {
-        mode: "fixed_servers",
-        rules: {
-            singleProxy: {
-                scheme: "http",
-                host: "%s",
-                port: %s
-            },
-            bypassList: ["localhost", "127.0.0.1"]
-        }
-    },
-    scope: "regular"
-});
-
-// Intercepta requisições de autenticação do proxy e injeta credenciais
-chrome.webRequest.onAuthRequired.addListener(
-    (details, callback) => {
-        callback({
-            authCredentials: {
-                username: "%s",
-                password: "%s"
-            }
-        });
-    },
-    { urls: ["<all_urls>"] },
-    ["asyncBlocking"]
-);
-""" % (host, port, user, password)
-
-        with open(os.path.join(ext_dir, 'manifest.json'), 'w') as f:
-            json.dump(manifest, f, indent=2)
-
-        with open(os.path.join(ext_dir, 'background.js'), 'w') as f:
-            f.write(background_js)
-
-        print(f"[PROXY] Extensão MV3 criada em: {ext_dir}")
-        return ext_dir
-
     def acessa_navegador(self):
         if self.caminho_arquivo:
             sys.stdout = open(self.caminho_arquivo, 'w')
@@ -98,14 +176,15 @@ chrome.webRequest.onAuthRequired.addListener(
         options = uc.ChromeOptions()
         
         # =====================================================================
-        # PROXY AUTENTICADO VIA EXTENSÃO DESCOMPACTADA (Manifest V3)
+        # PROXY VIA FORWARDER LOCAL (100% confiável, sem extensão)
         #
-        # Histórico de falhas:
-        # 1. add_extension(.zip) -> Silenciosamente ignorado pelo UC
-        # 2. selenium-wire -> Incompatível com pyOpenSSL moderno (Python 3.12)
+        # Fluxo: Chrome → 127.0.0.1:PORTA (sem auth) → Forwarder injeta
+        #         Proxy-Authorization → geo.iproyal.com:12321 (com auth)
         #
-        # Solução: --load-extension com diretório descompactado
-        # Funciona porque é uma flag nativa do Chrome, não interceptada pelo UC.
+        # Por que não usar extensão?
+        #   - add_extension(.zip) é ignorado pelo UC
+        #   - --load-extension + MV3 carrega mas NÃO aplica proxy (IP=VPS)
+        #   - selenium-wire é incompatível com Python 3.12
         # =====================================================================
         proxy_host = os.environ.get("PROXY_HOST")
         proxy_port = os.environ.get("PROXY_PORT")
@@ -113,18 +192,24 @@ chrome.webRequest.onAuthRequired.addListener(
         proxy_pass = os.environ.get("PROXY_PASS")
 
         if proxy_host and proxy_port and proxy_user and proxy_pass:
-            # =====================================================================
-            # ROTAÇÃO DE IP: Gera um session_id aleatório a cada browser novo.
-            # IPRoyal usa o formato: user_session-XXXXX para criar sessões sticky
-            # únicas. Sem isso, o mesmo IP é reutilizado indefinidamente.
-            # =====================================================================
-            session_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
-            proxy_user_rotated = f"{proxy_user}_session-{session_id}"
-            print(f"[PROXY] Configurando proxy: {proxy_host}:{proxy_port} (sessão: {session_id})")
-            ext_dir = self._criar_extensao_proxy(proxy_host, proxy_port, proxy_user_rotated, proxy_pass)
-            options.add_argument(f'--load-extension={ext_dir}')
+            print(f"[PROXY] Upstream: {proxy_host}:{proxy_port}")
+            print(f"[PROXY] User: {proxy_user}, Pass: {proxy_pass[:4]}***")
+            
+            # Inicia o forwarder local (thread daemon)
+            self._proxy_forwarder = LocalProxyForwarder(
+                upstream_host=proxy_host,
+                upstream_port=proxy_port,
+                upstream_user=proxy_user,
+                upstream_pass=proxy_pass,
+            )
+            
+            # Chrome aponta pro proxy local (sem auth, sem extensão)
+            local_proxy = f"http://127.0.0.1:{self._proxy_forwarder.port}"
+            options.add_argument(f'--proxy-server={local_proxy}')
+            print(f"[PROXY] Chrome configurado para usar: {local_proxy}")
+            
         elif proxy_host and proxy_port:
-            # Proxy sem autenticação (não precisa de extensão)
+            # Proxy sem autenticação (direto)
             print(f"[PROXY] Configurando proxy sem auth: {proxy_host}:{proxy_port}")
             options.add_argument(f'--proxy-server=http://{proxy_host}:{proxy_port}')
 
@@ -161,12 +246,19 @@ chrome.webRequest.onAuthRequired.addListener(
         if proxy_host and proxy_port:
             try:
                 import time
-                time.sleep(2)  # Dá tempo pro Chrome carregar a extensão
+                time.sleep(2)  # Dá tempo pro Chrome carregar
                 navegador.get('https://ipv4.icanhazip.com')
                 time.sleep(3)
                 from selenium.webdriver.common.by import By
                 ip_texto = navegador.find_element(By.TAG_NAME, "body").text.strip()
-                print(f"[PROXY] IP de saída confirmado: {ip_texto}")
+                
+                # Compara com o IP da VPS pra confirmar que o proxy está funcionando
+                vps_ip = os.environ.get("DB_HOST", "desconhecido")
+                if ip_texto == vps_ip:
+                    print(f"[PROXY] ⚠️ ALERTA: IP de saída ({ip_texto}) É IGUAL ao IP da VPS ({vps_ip})!")
+                    print(f"[PROXY] ⚠️ O proxy NÃO está funcionando! Chrome está indo direto.")
+                else:
+                    print(f"[PROXY] ✅ IP de saída confirmado: {ip_texto} (VPS: {vps_ip})")
             except Exception as e:
                 print(f"[PROXY] AVISO - Falha ao validar IP de saída: {e}")
 
@@ -180,3 +272,4 @@ if __name__ == "__main__":
     manager = ChromeStealthManager()
     navegador, chrome_pids = manager.acessa_navegador()
     print(f"Navegador oculto aberto. PIDs: {chrome_pids}")
+    input("Pressione Enter para fechar...")
