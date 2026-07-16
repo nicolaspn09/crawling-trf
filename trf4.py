@@ -116,11 +116,7 @@ class BotTRF4:
                             except Exception:
                                 pass
                             
-                            try:
-                                acoes.aguardar_sucesso_cloudflare(timeout_captcha=15)
-                            except Exception:
-                                pass
-                            
+
                             alerta_texto_encontrado = ""
                             clicou_com_sucesso = False
                             
