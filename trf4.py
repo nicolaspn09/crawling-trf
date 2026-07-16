@@ -128,7 +128,7 @@ class BotTRF4:
                                 acoes.clicar(elemento="botaoEnviar", tipo_dado="id", timer=10)
                                 
                                 try:
-                                    alerta = WebDriverWait(navegador, 4).until(EC.alert_is_present())
+                                    alerta = WebDriverWait(navegador, 10).until(EC.alert_is_present())
                                     texto = alerta.text
                                     if "captcha" in texto.lower() or "aguarde" in texto.lower():
                                         alerta.accept()
@@ -263,11 +263,18 @@ class BotTRF4:
                             except Exception:
                                 pass
                             
-                    if not tem_alerta:
+                    if not tem_alerta and not erro_site:
                         lista_processos_nome = []
                         
                         from selenium.webdriver.common.by import By
-                        links_conteudo = navegador.find_elements(By.XPATH, "//div[@id='divConteudo']/a")
+                        from selenium.common.exceptions import UnexpectedAlertPresentException
+                        
+                        try:
+                            links_conteudo = navegador.find_elements(By.XPATH, "//div[@id='divConteudo']/a")
+                        except UnexpectedAlertPresentException as e:
+                            print(f"    [ERRO] Alerta inesperado detectado tardiamente durante varredura: {e.alert_text}")
+                            raise ValueError(f"Alerta tardio bloqueou a página: {e.alert_text}")
+                            
                         is_homonimos = any("CPF/CNPJ:" in l.text for l in links_conteudo)
                         
                         if is_homonimos:
