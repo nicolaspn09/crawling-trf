@@ -85,6 +85,7 @@ class _ProxyHandler(socketserver.BaseRequestHandler):
                     self._tunnel(client, upstream)
                 else:
                     # Upstream negou a conexão (403 etc)
+                    print(f"[FORWARDER ERRO] Upstream negou a conexao para {first_line}: {response}")
                     client.sendall(response)
             else:
                 # HTTP: Relay simples da resposta
