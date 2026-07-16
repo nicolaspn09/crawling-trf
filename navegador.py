@@ -26,6 +26,12 @@ class NavegadorPy:
             )
         except TimeoutException:
             return False
+        except UnexpectedAlertPresentException:
+            try:
+                self.navegador.switch_to.alert.accept()
+            except:
+                pass
+            return False
 
     def clicar(self, tipo_dado, elemento, timer=60):
         elemento_pagina = self._obter_elemento(tipo_dado, elemento, timer)
@@ -127,7 +133,7 @@ class NavegadorPy:
             )
             print("[INFO] Cloudflare Turnstile validado com sucesso!")
         except Exception:
-            raise TimeoutError("O Cloudflare não validou o acesso dentro do tempo limite.")
+            raise TimeoutError("O captcha do Cloudflare não validou o acesso dentro do tempo limite.")
         finally:
             # 3. CRÍTICO: Retorna o foco do driver para a página principal (fora do iframe)
             self.navegador.switch_to.default_content()
@@ -136,18 +142,31 @@ class NavegadorPy:
         """
         Coleta dinamicamente os links dos processos baseando-se na árvore real do DOM.
         """
-        elementos = self.navegador.find_elements(By.XPATH, "//div[@id='divConteudo']/a")
-        
-        dados_processos = []
-        for el in elementos:
-            href = el.get_attribute("href")
-            texto = el.text
+        try:
+            elementos = self.navegador.find_elements(By.XPATH, "//div[@id='divConteudo']/a")
             
-            # Valida se o link possui o parâmetro de pesquisa e ignora o botão 'Nova Consulta'
-            if href and "txtValor=" in href and "Nova Consulta" not in texto:
-                dados_processos.append({"titulo": texto, "url": href})
+            dados_processos = []
+            for el in elementos:
+                href = el.get_attribute("href")
+                texto = el.text
                 
-        return dados_processos
+                # Valida se o link possui o parâmetro de pesquisa e ignora o botão 'Nova Consulta'
+                if href and "txtValor=" in href and "Nova Consulta" not in texto:
+                    dados_processos.append({"titulo": texto, "url": href})
+                    
+            return dados_processos
+        except UnexpectedAlertPresentException:
+            try:
+                alert_text = self.navegador.switch_to.alert.text
+                self.navegador.switch_to.alert.accept()
+                if "captcha" in alert_text.lower() or "aguarde" in alert_text.lower():
+                    raise Exception("Aguarde a verificação do captcha.")
+            except Exception as ex:
+                if str(ex) == "Aguarde a verificação do captcha.":
+                    raise ex
+            return []
+        except Exception:
+            return []
 
     def analisar_conteudo_processo(self, url_processo):
         """

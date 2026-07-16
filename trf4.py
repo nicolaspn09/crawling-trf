@@ -116,6 +116,11 @@ class BotTRF4:
                             except Exception:
                                 pass
                             
+                            try:
+                                acoes.aguardar_sucesso_cloudflare(timeout_captcha=15)
+                            except Exception:
+                                pass
+                            
                             alerta_texto_encontrado = ""
                             clicou_com_sucesso = False
                             
@@ -130,7 +135,7 @@ class BotTRF4:
                                         print(f"    [Aviso] Aguardando captcha resolver sozinho... (Click {tentativa_clique+1}/6)")
                                         try:
                                             # Tenta interagir ativamente com o Cloudflare se houver checkbox na tela
-                                            acoes.aguardar_sucesso_cloudflare(timeout_captcha=10)
+                                            acoes.aguardar_sucesso_cloudflare(timeout_captcha=20)
                                         except Exception:
                                             pass
                                         time.sleep(3)
