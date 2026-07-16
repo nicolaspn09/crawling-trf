@@ -207,18 +207,6 @@ class BotTRF4:
                                 pass
                         erro_site = True
                 
-                if not tem_alerta and not erro_site:
-                    # Verifica Cloudflare
-                    cloudflare = acoes._obter_elemento(elemento="/html/body/div[1]/section/div[7]/div/form/input[1]", tipo_dado="xpath", timer=5)
-                    if cloudflare:
-                        acoes.aguardar_sucesso_cloudflare(timeout_captcha=30)
-                        time.sleep(random.uniform(0.5, 1.2))
-                        try:
-                            acoes.clicar(elemento="/html/body/div[1]/section/div[7]/div/form/input[1]", tipo_dado="xpath", timer=5)
-                            time.sleep(random.uniform(0.8, 1.5))
-                        except Exception:
-                            pass
-                
                 lista_processos = []
                 if not tem_alerta and not erro_site:
                     lista_processos = acoes.obter_links_da_lista()
@@ -251,15 +239,7 @@ class BotTRF4:
                             erro_site = True
                     
                     if not tem_alerta and not erro_site:
-                        cloudflare = acoes._obter_elemento(elemento="/html/body/div[1]/section/div[7]/div/form/input[1]", tipo_dado="xpath", timer=5)
-                        if cloudflare:
-                            acoes.aguardar_sucesso_cloudflare(timeout_captcha=30)
-                            time.sleep(random.uniform(0.5, 1.2))
-                            try:
-                                acoes.clicar(elemento="/html/body/div[1]/section/div[7]/div/form/input[1]", tipo_dado="xpath", timer=5)
-                                time.sleep(random.uniform(0.8, 1.5))
-                            except Exception:
-                                pass
+                        pass
                             
                     if not tem_alerta and not erro_site:
                         lista_processos_nome = []
