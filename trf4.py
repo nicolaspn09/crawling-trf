@@ -198,7 +198,8 @@ class BotTRF4:
                 erro_site = False
                 if not tem_alerta:
                     try:
-                        erro_site = acoes._obter_elemento(elemento="divInfraBarraLocalizacao", tipo_dado="id", timer=15)
+                        elemento_barra = acoes._obter_elemento(elemento="divInfraBarraLocalizacao", tipo_dado="id", timer=15)
+                        erro_site = (elemento_barra is False)
                     except Exception as e:
                         if "alert" in str(e).lower():
                             try:
@@ -229,7 +230,8 @@ class BotTRF4:
                     erro_site = False
                     if not tem_alerta:
                         try:
-                            erro_site = acoes._obter_elemento(elemento="divInfraBarraLocalizacao", tipo_dado="id", timer=15)
+                            elemento_barra = acoes._obter_elemento(elemento="divInfraBarraLocalizacao", tipo_dado="id", timer=15)
+                            erro_site = (elemento_barra is False)
                         except Exception as e:
                             if "alert" in str(e).lower():
                                 try:
