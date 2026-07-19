@@ -210,6 +210,12 @@ class BotTRF4:
                             except Exception:
                                 pass
                         erro_site = True
+                        
+                    if erro_site:
+                        try:
+                            navegador.save_screenshot(f"/tmp/erro_site_{cpf_limpo}.png")
+                        except:
+                            pass
                 
                 lista_processos = []
                 if not tem_alerta and not erro_site:
