@@ -24,7 +24,6 @@ class BotTRF4:
         url = AcessaSite().site("sc")
         # Força o recarregamento total da página saindo dela e voltando
         navegador.get("about:blank")
-        navegador.delete_all_cookies() # Limpa histórico de sessão para burlar token do Cloudflare
         time.sleep(0.1)
         navegador.get(url)
 
@@ -200,6 +199,18 @@ class BotTRF4:
                 # Trata possível erro ao buscar o CPF 
                 erro_site = False
                 if not tem_alerta:
+                    # Verifica se caiu no Cloudflare antes de buscar a barra
+                    try:
+                        from selenium.webdriver.common.by import By
+                        iframes = navegador.find_elements(By.TAG_NAME, "iframe")
+                        for iframe in iframes:
+                            if "cloudflare" in str(iframe.get_attribute("src")).lower():
+                                print("    [ANTI-CAPTCHA] Cloudflare detectado na consulta. Aguardando resolução automática (15s)...")
+                                time.sleep(15)
+                                break
+                    except Exception:
+                        pass
+                        
                     try:
                         elemento_barra = acoes._obter_elemento(elemento="divInfraBarraLocalizacao", tipo_dado="id", timer=15)
                         erro_site = (elemento_barra is False)
@@ -238,6 +249,18 @@ class BotTRF4:
                         
                     erro_site = False
                     if not tem_alerta:
+                        # Verifica se caiu no Cloudflare antes de buscar a barra
+                        try:
+                            from selenium.webdriver.common.by import By
+                            iframes = navegador.find_elements(By.TAG_NAME, "iframe")
+                            for iframe in iframes:
+                                if "cloudflare" in str(iframe.get_attribute("src")).lower():
+                                    print("    [ANTI-CAPTCHA] Cloudflare detectado na dupla checagem. Aguardando resolução automática (15s)...")
+                                    time.sleep(15)
+                                    break
+                        except Exception:
+                            pass
+                            
                         try:
                             elemento_barra = acoes._obter_elemento(elemento="divInfraBarraLocalizacao", tipo_dado="id", timer=15)
                             erro_site = (elemento_barra is False)
