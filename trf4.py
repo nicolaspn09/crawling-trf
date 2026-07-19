@@ -99,13 +99,16 @@ class BotTRF4:
                             acoes.combobox(elemento="selForma", tipo_dado="id", timer=20, index=indice_origem)
                             time.sleep(random.uniform(0.2, 0.5))
                             
-                            if estado == "SC":
-                                try:
-                                    # 3 = JFSC (Santa Catarina)
+                            try:
+                                if estado == "SC":
                                     acoes.combobox(elemento="selOrigem", tipo_dado="id", timer=5, index=3)
-                                    time.sleep(random.uniform(0.2, 0.4))
-                                except Exception:
-                                    pass # O campo selOrigem não existe ou fica oculto quando a busca é pelo Nome
+                                elif estado == "RS":
+                                    acoes.combobox(elemento="selOrigem", tipo_dado="id", timer=5, index=4)
+                                elif estado == "PR":
+                                    acoes.combobox(elemento="selOrigem", tipo_dado="id", timer=5, index=2)
+                                time.sleep(random.uniform(0.2, 0.4))
+                            except Exception:
+                                pass # O campo selOrigem n\u00e3o existe ou fica oculto quando a busca \u00e9 pelo Nome
                             
                             acoes.adicionar_informacao(elemento="txtValor", tipo_dado="id", valor=valor_busca, timer=20)
                             time.sleep(random.uniform(0.1, 0.3))
@@ -313,9 +316,16 @@ class BotTRF4:
                     continue
                     
                 if erro_site and not lista_processos:
-                    print("Site com erro na pesquisa de CPF e Nome! Aguardando para nova tentativa...")
-                    time.sleep(random.uniform(5.0, 10.0))
-                    continue
+                    tentativas_cpf_global += 1
+                    if tentativas_cpf_global > 3:
+                        print("    [AVISO] Muitas tentativas fracassadas. Assumindo Nada Consta e prosseguindo.")
+                        # Trata como Nada Consta após 3 falhas para evitar loop infinito
+                        lista_processos = []
+                        erro_site = False
+                    else:
+                        print(f"Site com erro na pesquisa de CPF e Nome! Aguardando para nova tentativa... (Tentativa {tentativas_cpf_global}/3)")
+                        time.sleep(random.uniform(5.0, 10.0))
+                        continue
 
                 if not lista_processos:
                     print(f"[AVISO FINAL] Nenhum processo foi encontrado para o CPF/NOME {cpf}.")
