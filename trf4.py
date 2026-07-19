@@ -202,12 +202,20 @@ class BotTRF4:
                     # Verifica se caiu no Cloudflare antes de buscar a barra
                     try:
                         from selenium.webdriver.common.by import By
-                        iframes = navegador.find_elements(By.TAG_NAME, "iframe")
-                        for iframe in iframes:
-                            if "cloudflare" in str(iframe.get_attribute("src")).lower():
-                                print("    [ANTI-CAPTCHA] Cloudflare detectado na consulta. Aguardando resolução automática (15s)...")
-                                time.sleep(15)
-                                break
+                        from selenium.webdriver.support.ui import WebDriverWait
+                        from selenium.webdriver.support import expected_conditions as EC
+                        cf_iframe = WebDriverWait(navegador, 3).until(
+                            EC.presence_of_element_located((By.XPATH, "//iframe[contains(@src, 'cloudflare')]"))
+                        )
+                        print("    [ANTI-CAPTCHA] Cloudflare detectado na consulta. Resolvendo...")
+                        time.sleep(2)
+                        navegador.switch_to.frame(cf_iframe)
+                        try:
+                            WebDriverWait(navegador, 5).until(EC.element_to_be_clickable((By.TAG_NAME, "body"))).click()
+                        except:
+                            pass
+                        navegador.switch_to.default_content()
+                        time.sleep(10)
                     except Exception:
                         pass
                         
@@ -252,12 +260,20 @@ class BotTRF4:
                         # Verifica se caiu no Cloudflare antes de buscar a barra
                         try:
                             from selenium.webdriver.common.by import By
-                            iframes = navegador.find_elements(By.TAG_NAME, "iframe")
-                            for iframe in iframes:
-                                if "cloudflare" in str(iframe.get_attribute("src")).lower():
-                                    print("    [ANTI-CAPTCHA] Cloudflare detectado na dupla checagem. Aguardando resolução automática (15s)...")
-                                    time.sleep(15)
-                                    break
+                            from selenium.webdriver.support.ui import WebDriverWait
+                            from selenium.webdriver.support import expected_conditions as EC
+                            cf_iframe = WebDriverWait(navegador, 3).until(
+                                EC.presence_of_element_located((By.XPATH, "//iframe[contains(@src, 'cloudflare')]"))
+                            )
+                            print("    [ANTI-CAPTCHA] Cloudflare detectado na dupla checagem. Resolvendo...")
+                            time.sleep(2)
+                            navegador.switch_to.frame(cf_iframe)
+                            try:
+                                WebDriverWait(navegador, 5).until(EC.element_to_be_clickable((By.TAG_NAME, "body"))).click()
+                            except:
+                                pass
+                            navegador.switch_to.default_content()
+                            time.sleep(10)
                         except Exception:
                             pass
                             
