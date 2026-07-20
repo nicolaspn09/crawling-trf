@@ -237,6 +237,8 @@ class BotTRF4:
                         erro_site = True
                         try:
                             navegador.save_screenshot(f"/tmp/erro_site_{cpf_limpo}.png")
+                            with open(f"/tmp/erro_site_{cpf_limpo}.html", "w", encoding="utf-8") as f:
+                                f.write(navegador.page_source)
                         except:
                             pass
 
@@ -310,6 +312,12 @@ class BotTRF4:
                         if espera_resultado >= 25 and not tem_alerta:
                             print("    [ERRO] Timeout aguardando resultado da pesquisa por Nome.")
                             erro_site = True
+                            try:
+                                navegador.save_screenshot(f"/tmp/erro_site_nome_{cpf_limpo}.png")
+                                with open(f"/tmp/erro_site_nome_{cpf_limpo}.html", "w", encoding="utf-8") as f:
+                                    f.write(navegador.page_source)
+                            except:
+                                pass
                             
                     if not tem_alerta and not erro_site:
                         from selenium.webdriver.common.by import By
