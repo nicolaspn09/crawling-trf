@@ -204,7 +204,7 @@ class BotTRF4:
                         from selenium.webdriver.common.by import By
                         from selenium.webdriver.support.ui import WebDriverWait
                         from selenium.webdriver.support import expected_conditions as EC
-                        cf_iframe = WebDriverWait(navegador, 3).until(
+                        cf_iframe = WebDriverWait(navegador, 15).until(
                             EC.presence_of_element_located((By.XPATH, "//iframe[contains(@src, 'cloudflare')]"))
                         )
                         print("    [ANTI-CAPTCHA] Cloudflare detectado na consulta. Resolvendo...")
@@ -235,10 +235,24 @@ class BotTRF4:
                             navegador.save_screenshot(f"/tmp/erro_site_{cpf_limpo}.png")
                         except:
                             pass
-                
                 lista_processos = []
                 if not tem_alerta and not erro_site:
                     lista_processos = acoes.obter_links_da_lista()
+                    
+                    # CORREÇÃO: Se E-proc redirecionou diretamente para os detalhes do processo (1 único resultado)
+                    if not lista_processos and "processo_selecionar" in navegador.current_url:
+                        print(f"    [INFO] Redirecionamento direto detectado para o processo único!")
+                        
+                        # Extrai o número do processo da tela se possível, ou usa genérico
+                        numero_unico = "Processo Único"
+                        try:
+                            from selenium.webdriver.common.by import By
+                            num_el = navegador.find_element(By.XPATH, "//*[@id='txtNumProcesso']")
+                            if num_el and num_el.text:
+                                numero_unico = num_el.text
+                        except: pass
+                        
+                        lista_processos = [{'url': navegador.current_url, 'titulo': numero_unico}]
 
                 # DUPLA CHECAGEM: Se não encontrou pelo CPF, tenta pelo Nome
                 if tem_alerta or not lista_processos:
@@ -262,7 +276,7 @@ class BotTRF4:
                             from selenium.webdriver.common.by import By
                             from selenium.webdriver.support.ui import WebDriverWait
                             from selenium.webdriver.support import expected_conditions as EC
-                            cf_iframe = WebDriverWait(navegador, 3).until(
+                            cf_iframe = WebDriverWait(navegador, 15).until(
                                 EC.presence_of_element_located((By.XPATH, "//iframe[contains(@src, 'cloudflare')]"))
                             )
                             print("    [ANTI-CAPTCHA] Cloudflare detectado na dupla checagem. Resolvendo...")
@@ -299,6 +313,18 @@ class BotTRF4:
                         
                         try:
                             links_conteudo = navegador.find_elements(By.XPATH, "//div[@id='divConteudo']/a")
+                            
+                            # CORREÇÃO: Se redirecionou direto para o processo único na pesquisa por NOME
+                            if not links_conteudo and "processo_selecionar" in navegador.current_url:
+                                print(f"    [INFO] Redirecionamento direto detectado para o processo único (Pesquisa por Nome)!")
+                                numero_unico = "Processo Único"
+                                try:
+                                    num_el = navegador.find_element(By.XPATH, "//*[@id='txtNumProcesso']")
+                                    if num_el and num_el.text:
+                                        numero_unico = num_el.text
+                                except: pass
+                                lista_processos_nome = [{'url': navegador.current_url, 'titulo': numero_unico}]
+                                
                         except UnexpectedAlertPresentException as e:
                             print(f"    [ERRO] Alerta inesperado detectado tardiamente durante varredura: {e.alert_text}")
                             
@@ -344,8 +370,9 @@ class BotTRF4:
                             else:
                                 print(f"       -> Nome {nome}: Nenhum homônimo correspondente (Nome exato + 4 digitos CPF).")
                         else:
-                            # Se não for a tela de homônimos, pega a lista direto
-                            lista_processos_nome = acoes.obter_links_da_lista()
+                            # Se não for a tela de homônimos, pega a lista direto (se já não foi preenchida pelo redirect direto)
+                            if not lista_processos_nome:
+                                lista_processos_nome = acoes.obter_links_da_lista()
                             
                         if lista_processos_nome:
                             print(f"       -> Dupla checagem encontrou processos pelo nome!")
