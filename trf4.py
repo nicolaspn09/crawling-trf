@@ -240,19 +240,16 @@ class BotTRF4:
                     lista_processos = acoes.obter_links_da_lista()
                     
                     # CORREÇÃO: Se E-proc redirecionou diretamente para os detalhes do processo (1 único resultado)
-                    if not lista_processos and "processo_selecionar" in navegador.current_url:
-                        print(f"    [INFO] Redirecionamento direto detectado para o processo único!")
-                        
-                        # Extrai o número do processo da tela se possível, ou usa genérico
-                        numero_unico = "Processo Único"
+                    if not lista_processos:
                         try:
                             from selenium.webdriver.common.by import By
                             num_el = navegador.find_element(By.XPATH, "//*[@id='txtNumProcesso']")
-                            if num_el and num_el.text:
-                                numero_unico = num_el.text
-                        except: pass
-                        
-                        lista_processos = [{'url': navegador.current_url, 'titulo': numero_unico}]
+                            if num_el and num_el.is_displayed():
+                                print(f"    [INFO] Redirecionamento direto detectado pelo elemento txtNumProcesso!")
+                                numero_unico = num_el.text if num_el.text else "Processo Único"
+                                lista_processos = [{'url': navegador.current_url, 'titulo': numero_unico}]
+                        except:
+                            pass
 
                 # DUPLA CHECAGEM: Se não encontrou pelo CPF, tenta pelo Nome
                 if tem_alerta or not lista_processos:
@@ -315,15 +312,15 @@ class BotTRF4:
                             links_conteudo = navegador.find_elements(By.XPATH, "//div[@id='divConteudo']/a")
                             
                             # CORREÇÃO: Se redirecionou direto para o processo único na pesquisa por NOME
-                            if not links_conteudo and "processo_selecionar" in navegador.current_url:
-                                print(f"    [INFO] Redirecionamento direto detectado para o processo único (Pesquisa por Nome)!")
-                                numero_unico = "Processo Único"
+                            if not links_conteudo:
                                 try:
                                     num_el = navegador.find_element(By.XPATH, "//*[@id='txtNumProcesso']")
-                                    if num_el and num_el.text:
-                                        numero_unico = num_el.text
-                                except: pass
-                                lista_processos_nome = [{'url': navegador.current_url, 'titulo': numero_unico}]
+                                    if num_el and num_el.is_displayed():
+                                        print(f"    [INFO] Redirecionamento direto detectado para o processo único (Pesquisa por Nome)!")
+                                        numero_unico = num_el.text if num_el.text else "Processo Único"
+                                        lista_processos_nome = [{'url': navegador.current_url, 'titulo': numero_unico}]
+                                except:
+                                    pass
                                 
                         except UnexpectedAlertPresentException as e:
                             print(f"    [ERRO] Alerta inesperado detectado tardiamente durante varredura: {e.alert_text}")
