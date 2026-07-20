@@ -201,21 +201,8 @@ class BotTRF4:
                 if not tem_alerta:
                     # Verifica se caiu no Cloudflare antes de buscar a barra
                     try:
-                        from selenium.webdriver.common.by import By
-                        from selenium.webdriver.support.ui import WebDriverWait
-                        from selenium.webdriver.support import expected_conditions as EC
-                        cf_iframe = WebDriverWait(navegador, 15).until(
-                            EC.presence_of_element_located((By.XPATH, "//iframe[contains(@src, 'cloudflare')]"))
-                        )
-                        print("    [ANTI-CAPTCHA] Cloudflare detectado na consulta. Resolvendo...")
-                        time.sleep(2)
-                        navegador.switch_to.frame(cf_iframe)
-                        try:
-                            WebDriverWait(navegador, 5).until(EC.element_to_be_clickable((By.TAG_NAME, "body"))).click()
-                        except:
-                            pass
-                        navegador.switch_to.default_content()
-                        time.sleep(10)
+                        print("    [ANTI-CAPTCHA] Verificando Cloudflare na consulta...")
+                        acoes.aguardar_sucesso_cloudflare(timeout_captcha=20)
                     except Exception:
                         pass
                         
