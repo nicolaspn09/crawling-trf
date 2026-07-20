@@ -189,40 +189,57 @@ class BotTRF4:
                 print(f"\n[CONSULTA] Iniciando busca para o CPF: {cpf}")
                 acoes, alerta_da_pesquisa = fazer_pesquisa_eproc(cpf, indice_origem=3)
 
-                # Trata possíveis popups (ex: Nenhum processo encontrado) nativos do site
-                tem_alerta, texto_alerta = self._tratar_alerta_popup(navegador, timeout=2)
+                from selenium.webdriver.common.by import By
+                from selenium.common.exceptions import UnexpectedAlertPresentException
+
+                tem_alerta = False
+                texto_alerta = alerta_da_pesquisa if alerta_da_pesquisa else ""
+                erro_site = False
+                lista_processos = []
                 
                 if alerta_da_pesquisa:
                     tem_alerta = True
-                    texto_alerta = alerta_da_pesquisa
-                
-                # Trata possível erro ao buscar o CPF 
-                erro_site = False
-                if not tem_alerta:
-                    # Verifica se caiu no Cloudflare antes de buscar a barra
-                    try:
-                        print("    [ANTI-CAPTCHA] Verificando Cloudflare na consulta...")
-                        acoes.aguardar_sucesso_cloudflare(timeout_captcha=20)
-                    except Exception:
-                        pass
-                        
-                    try:
-                        elemento_barra = acoes._obter_elemento(elemento="divInfraBarraLocalizacao", tipo_dado="id", timer=15)
-                        erro_site = (elemento_barra is False)
-                    except Exception as e:
-                        if "alert" in str(e).lower():
+                else:
+                    # Espera ativa robusta para o resultado da pesquisa carregar
+                    espera_resultado = 0
+                    while espera_resultado < 25:
+                        try:
+                            # 1. Verifica se apareceu um alerta nativo de 'Nada Consta'
+                            alert = navegador.switch_to.alert
+                            texto_alerta = alert.text
+                            alert.accept()
+                            tem_alerta = True
+                            break
+                        except:
+                            pass
+                            
+                        # 2. Verifica se a tabela de múltiplos processos carregou
+                        if len(navegador.find_elements(By.XPATH, "//*[@id='divInfraAreaTabela']")) > 0:
+                            break
+                            
+                        # 3. Verifica se o painel de detalhes carregou (redirecionamento direto para processo único)
+                        if len(navegador.find_elements(By.XPATH, "//*[@id='divInfraAreaDadosProcesso']")) > 0:
+                            break
+                            
+                        # 4. Verifica se a página parou num Cloudflare pós-pesquisa
+                        if len(navegador.find_elements(By.XPATH, "//iframe[contains(@src, 'cloudflare')]")) > 0:
                             try:
-                                navegador.switch_to.alert.accept()
-                            except Exception:
+                                print("    [ANTI-CAPTCHA] Cloudflare detectado aguardando resultado...")
+                                acoes.aguardar_sucesso_cloudflare(timeout_captcha=20)
+                            except:
                                 pass
-                        erro_site = True
+                                
+                        time.sleep(1)
+                        espera_resultado += 1
                         
-                    if erro_site:
+                    if espera_resultado >= 25 and not tem_alerta:
+                        print("    [ERRO] Timeout aguardando resultado da pesquisa do CPF.")
+                        erro_site = True
                         try:
                             navegador.save_screenshot(f"/tmp/erro_site_{cpf_limpo}.png")
                         except:
                             pass
-                lista_processos = []
+
                 if not tem_alerta and not erro_site:
                     lista_processos = acoes.obter_links_da_lista()
                     
@@ -255,37 +272,46 @@ class BotTRF4:
                     time.sleep(delay)
                     acoes, alerta_nome = fazer_pesquisa_eproc(nome, indice_origem=2)
                     
-                    tem_alerta, texto_alerta = self._tratar_alerta_popup(navegador, timeout=2)
+                    tem_alerta = False
+                    texto_alerta = alerta_nome if alerta_nome else ""
+                    erro_site = False
+                    lista_processos_nome = []
+                    
                     if alerta_nome:
                         tem_alerta = True
-                        texto_alerta = alerta_nome
-                        
-                    erro_site = False
-                    if not tem_alerta:
-                        # Verifica se caiu no Cloudflare antes de buscar a barra
-                        try:
-                            print("    [ANTI-CAPTCHA] Verificando Cloudflare na dupla checagem...")
-                            acoes.aguardar_sucesso_cloudflare(timeout_captcha=20)
-                        except Exception:
-                            pass
-                            
-                        try:
-                            elemento_barra = acoes._obter_elemento(elemento="divInfraBarraLocalizacao", tipo_dado="id", timer=15)
-                            erro_site = (elemento_barra is False)
-                        except Exception as e:
-                            if "alert" in str(e).lower():
+                    else:
+                        espera_resultado = 0
+                        while espera_resultado < 25:
+                            try:
+                                alert = navegador.switch_to.alert
+                                texto_alerta = alert.text
+                                alert.accept()
+                                tem_alerta = True
+                                break
+                            except:
+                                pass
+                                
+                            if len(navegador.find_elements(By.XPATH, "//*[@id='divInfraAreaTabela']")) > 0:
+                                break
+                                
+                            if len(navegador.find_elements(By.XPATH, "//*[@id='divInfraAreaDadosProcesso']")) > 0:
+                                break
+                                
+                            if len(navegador.find_elements(By.XPATH, "//iframe[contains(@src, 'cloudflare')]")) > 0:
                                 try:
-                                    navegador.switch_to.alert.accept()
-                                except Exception:
+                                    print("    [ANTI-CAPTCHA] Cloudflare detectado aguardando resultado Nome...")
+                                    acoes.aguardar_sucesso_cloudflare(timeout_captcha=20)
+                                except:
                                     pass
+                                    
+                            time.sleep(1)
+                            espera_resultado += 1
+                            
+                        if espera_resultado >= 25 and not tem_alerta:
+                            print("    [ERRO] Timeout aguardando resultado da pesquisa por Nome.")
                             erro_site = True
-                    
-                    if not tem_alerta and not erro_site:
-                        pass
                             
                     if not tem_alerta and not erro_site:
-                        lista_processos_nome = []
-                        
                         from selenium.webdriver.common.by import By
                         from selenium.common.exceptions import UnexpectedAlertPresentException
                         
