@@ -224,10 +224,35 @@ class BotTRF4:
                         # 4. Verifica se a página parou num Cloudflare pós-pesquisa
                         if len(navegador.find_elements(By.XPATH, "//iframe[contains(@src, 'cloudflare')]")) > 0:
                             try:
-                                print("    [ANTI-CAPTCHA] Cloudflare detectado aguardando resultado...")
-                                acoes.aguardar_sucesso_cloudflare(timeout_captcha=20)
+                                iframe = navegador.find_element(By.XPATH, "//iframe[contains(@src, 'cloudflare')]")
+                                navegador.switch_to.frame(iframe)
+                                from selenium.webdriver.support.ui import WebDriverWait
+                                from selenium.webdriver.support import expected_conditions as EC
+                                box = WebDriverWait(navegador, 1).until(EC.element_to_be_clickable((By.XPATH, "//body")))
+                                box.click()
+                                navegador.switch_to.default_content()
+                                time.sleep(1)
                             except:
-                                pass
+                                navegador.switch_to.default_content()
+
+                            botoes_continuar = navegador.find_elements(By.XPATH, "//*[contains(translate(text(), 'continuar', 'CONTINUAR'), 'CONTINUAR') or @value='CONTINUAR' or @value='Continuar']")
+                            clicou = False
+                            for btn in botoes_continuar:
+                                if btn.is_displayed():
+                                    try:
+                                        print("    [ANTI-CAPTCHA] Clicando no botão CONTINUAR...")
+                                        btn.click()
+                                        time.sleep(2)
+                                        clicou = True
+                                        break
+                                    except:
+                                        pass
+                            
+                            if not clicou:
+                                try:
+                                    acoes.aguardar_sucesso_cloudflare(timeout_captcha=2)
+                                except:
+                                    pass
                                 
                         time.sleep(1)
                         espera_resultado += 1
@@ -301,10 +326,35 @@ class BotTRF4:
                                 
                             if len(navegador.find_elements(By.XPATH, "//iframe[contains(@src, 'cloudflare')]")) > 0:
                                 try:
-                                    print("    [ANTI-CAPTCHA] Cloudflare detectado aguardando resultado Nome...")
-                                    acoes.aguardar_sucesso_cloudflare(timeout_captcha=20)
+                                    iframe = navegador.find_element(By.XPATH, "//iframe[contains(@src, 'cloudflare')]")
+                                    navegador.switch_to.frame(iframe)
+                                    from selenium.webdriver.support.ui import WebDriverWait
+                                    from selenium.webdriver.support import expected_conditions as EC
+                                    box = WebDriverWait(navegador, 1).until(EC.element_to_be_clickable((By.XPATH, "//body")))
+                                    box.click()
+                                    navegador.switch_to.default_content()
+                                    time.sleep(1)
                                 except:
-                                    pass
+                                    navegador.switch_to.default_content()
+
+                                botoes_continuar = navegador.find_elements(By.XPATH, "//*[contains(translate(text(), 'continuar', 'CONTINUAR'), 'CONTINUAR') or @value='CONTINUAR' or @value='Continuar']")
+                                clicou = False
+                                for btn in botoes_continuar:
+                                    if btn.is_displayed():
+                                        try:
+                                            print("    [ANTI-CAPTCHA] Clicando no botão CONTINUAR da busca por Nome...")
+                                            btn.click()
+                                            time.sleep(2)
+                                            clicou = True
+                                            break
+                                        except:
+                                            pass
+                                
+                                if not clicou:
+                                    try:
+                                        acoes.aguardar_sucesso_cloudflare(timeout_captcha=20)
+                                    except:
+                                        pass
                                     
                             time.sleep(1)
                             espera_resultado += 1
