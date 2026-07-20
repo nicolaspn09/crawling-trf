@@ -243,10 +243,17 @@ class BotTRF4:
                     if not lista_processos:
                         try:
                             from selenium.webdriver.common.by import By
-                            num_el = navegador.find_element(By.XPATH, "//*[@id='txtNumProcesso']")
-                            if num_el and num_el.is_displayed():
-                                print(f"    [INFO] Redirecionamento direto detectado pelo elemento txtNumProcesso!")
-                                numero_unico = num_el.text if num_el.text else "Processo Único"
+                            # Verifica se estamos na tela de detalhes do processo procurando pelo painel de ações ou capa
+                            is_detalhes = len(navegador.find_elements(By.XPATH, "//a[contains(text(), 'mostrar todas as fases') or contains(text(), 'Mostrar todas as fases')]")) > 0
+                            is_detalhes = is_detalhes or len(navegador.find_elements(By.XPATH, "//*[@id='divInfraAreaDadosProcesso']")) > 0
+                            if is_detalhes:
+                                print(f"    [INFO] Redirecionamento direto detectado para o processo único!")
+                                numero_unico = "Processo Único"
+                                try:
+                                    # Tenta pegar o número do processo do topo da página se existir
+                                    topo = navegador.find_elements(By.XPATH, "//*[@id='txtNumProcesso']")
+                                    if topo and topo[0].text: numero_unico = topo[0].text
+                                except: pass
                                 lista_processos = [{'url': navegador.current_url, 'titulo': numero_unico}]
                         except:
                             pass
@@ -270,21 +277,8 @@ class BotTRF4:
                     if not tem_alerta:
                         # Verifica se caiu no Cloudflare antes de buscar a barra
                         try:
-                            from selenium.webdriver.common.by import By
-                            from selenium.webdriver.support.ui import WebDriverWait
-                            from selenium.webdriver.support import expected_conditions as EC
-                            cf_iframe = WebDriverWait(navegador, 15).until(
-                                EC.presence_of_element_located((By.XPATH, "//iframe[contains(@src, 'cloudflare')]"))
-                            )
-                            print("    [ANTI-CAPTCHA] Cloudflare detectado na dupla checagem. Resolvendo...")
-                            time.sleep(2)
-                            navegador.switch_to.frame(cf_iframe)
-                            try:
-                                WebDriverWait(navegador, 5).until(EC.element_to_be_clickable((By.TAG_NAME, "body"))).click()
-                            except:
-                                pass
-                            navegador.switch_to.default_content()
-                            time.sleep(10)
+                            print("    [ANTI-CAPTCHA] Verificando Cloudflare na dupla checagem...")
+                            acoes.aguardar_sucesso_cloudflare(timeout_captcha=20)
                         except Exception:
                             pass
                             
@@ -314,10 +308,15 @@ class BotTRF4:
                             # CORREÇÃO: Se redirecionou direto para o processo único na pesquisa por NOME
                             if not links_conteudo:
                                 try:
-                                    num_el = navegador.find_element(By.XPATH, "//*[@id='txtNumProcesso']")
-                                    if num_el and num_el.is_displayed():
+                                    is_detalhes = len(navegador.find_elements(By.XPATH, "//a[contains(text(), 'mostrar todas as fases') or contains(text(), 'Mostrar todas as fases')]")) > 0
+                                    is_detalhes = is_detalhes or len(navegador.find_elements(By.XPATH, "//*[@id='divInfraAreaDadosProcesso']")) > 0
+                                    if is_detalhes:
                                         print(f"    [INFO] Redirecionamento direto detectado para o processo único (Pesquisa por Nome)!")
-                                        numero_unico = num_el.text if num_el.text else "Processo Único"
+                                        numero_unico = "Processo Único"
+                                        try:
+                                            topo = navegador.find_elements(By.XPATH, "//*[@id='txtNumProcesso']")
+                                            if topo and topo[0].text: numero_unico = topo[0].text
+                                        except: pass
                                         lista_processos_nome = [{'url': navegador.current_url, 'titulo': numero_unico}]
                                 except:
                                     pass
