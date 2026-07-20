@@ -170,11 +170,12 @@ class BotTRF4:
                                 pass
                             
                             is_captcha = "captcha" in texto_inesperado.lower() or "aguarde" in texto_inesperado.lower()
+                            is_sessao = "sess" in texto_inesperado.lower() or "encerrada" in texto_inesperado.lower()
                             is_alert = "alert" in texto_inesperado.lower() or texto_alerta_puro != ""
 
-                            if is_captcha:
-                                print(f"    [Aviso] Alerta de captcha bloqueou a página. Esperando 5s... (Tentativa {tentativas_globais+1}/8)")
-                                time.sleep(5)
+                            if is_captcha or is_sessao:
+                                print(f"    [Aviso] Captcha ou sessão expirada bloqueou a página. Recarregando... (Tentativa {tentativas_globais+1}/8)")
+                                time.sleep(2)
                                 tentativas_globais += 1
                                 continue
                             elif is_alert:
@@ -204,13 +205,19 @@ class BotTRF4:
                     espera_resultado = 0
                     while espera_resultado < 25:
                         try:
-                            # 1. Verifica se apareceu um alerta nativo de 'Nada Consta'
+                            # 1. Verifica se apareceu um alerta nativo de 'Nada Consta' ou 'Sessão encerrada'
                             alert = navegador.switch_to.alert
                             texto_alerta = alert.text
                             alert.accept()
+                            
+                            if "sess" in texto_alerta.lower() or "encerrada" in texto_alerta.lower():
+                                raise Exception(f"Sessão encerrada: {texto_alerta}")
+                                
                             tem_alerta = True
                             break
-                        except:
+                        except Exception as e:
+                            if "Sessão encerrada" in str(e):
+                                raise e
                             pass
                             
                         # 2. Verifica se a tabela de múltiplos processos carregou
@@ -310,12 +317,19 @@ class BotTRF4:
                         espera_resultado = 0
                         while espera_resultado < 25:
                             try:
+                                # 1. Verifica alerta nativo ('Nada Consta' ou sessão)
                                 alert = navegador.switch_to.alert
-                                texto_alerta = alert.text
+                                texto_alerta_nome = alert.text
                                 alert.accept()
+                                
+                                if "sess" in texto_alerta_nome.lower() or "encerrada" in texto_alerta_nome.lower():
+                                    raise Exception(f"Sessão encerrada: {texto_alerta_nome}")
+                                    
                                 tem_alerta = True
                                 break
-                            except:
+                            except Exception as e:
+                                if "Sessão encerrada" in str(e):
+                                    raise e
                                 pass
                                 
                             if len(navegador.find_elements(By.XPATH, "//*[@id='divInfraAreaTabela']")) > 0:
