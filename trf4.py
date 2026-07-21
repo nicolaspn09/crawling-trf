@@ -203,6 +203,7 @@ class BotTRF4:
                 else:
                     # Espera ativa robusta para o resultado da pesquisa carregar
                     espera_resultado = 0
+                    clicou_turnstile = False
                     while espera_resultado < 25:
                         try:
                             # 1. Verifica se apareceu um alerta nativo de 'Nada Consta' ou 'Sessão encerrada'
@@ -231,31 +232,26 @@ class BotTRF4:
                         # 4. Verifica se a página parou num Cloudflare pós-pesquisa
                         cf_widgets = navegador.find_elements(By.CLASS_NAME, "cf-turnstile")
                         if len(cf_widgets) > 0:
-                            try:
-                                from selenium.webdriver.common.action_chains import ActionChains
-                                ActionChains(navegador).move_to_element(cf_widgets[0]).click().perform()
-                                time.sleep(1)
-                            except Exception:
-                                pass
+                            if not clicou_turnstile:
+                                try:
+                                    from selenium.webdriver.common.action_chains import ActionChains
+                                    ActionChains(navegador).move_to_element(cf_widgets[0]).click().perform()
+                                    clicou_turnstile = True
+                                    print("    [ANTI-CAPTCHA] Turnstile detectado. Clique enviado. Aguardando...")
+                                except Exception:
+                                    pass
 
                             botoes_continuar = navegador.find_elements(By.XPATH, "//*[contains(translate(text(), 'continuar', 'CONTINUAR'), 'CONTINUAR') or @value='CONTINUAR' or @value='Continuar']")
-                            clicou = False
                             for btn in botoes_continuar:
                                 if btn.is_displayed():
                                     try:
-                                        print("    [ANTI-CAPTCHA] Clicando no botão CONTINUAR...")
+                                        print("    [ANTI-CAPTCHA] Botão CONTINUAR visível. Clicando...")
                                         btn.click()
                                         time.sleep(2)
-                                        clicou = True
+                                        clicou_turnstile = False
                                         break
                                     except:
                                         pass
-                            
-                            if not clicou:
-                                try:
-                                    acoes.aguardar_sucesso_cloudflare(timeout_captcha=2)
-                                except:
-                                    pass
                                 
                         time.sleep(1)
                         espera_resultado += 1
@@ -312,6 +308,7 @@ class BotTRF4:
                         tem_alerta = True
                     else:
                         espera_resultado = 0
+                        clicou_turnstile_nome = False
                         while espera_resultado < 25:
                             try:
                                 # 1. Verifica alerta nativo ('Nada Consta' ou sessão)
@@ -337,31 +334,26 @@ class BotTRF4:
                                 
                             cf_widgets = navegador.find_elements(By.CLASS_NAME, "cf-turnstile")
                             if len(cf_widgets) > 0:
-                                try:
-                                    from selenium.webdriver.common.action_chains import ActionChains
-                                    ActionChains(navegador).move_to_element(cf_widgets[0]).click().perform()
-                                    time.sleep(1)
-                                except Exception:
-                                    pass
+                                if not clicou_turnstile_nome:
+                                    try:
+                                        from selenium.webdriver.common.action_chains import ActionChains
+                                        ActionChains(navegador).move_to_element(cf_widgets[0]).click().perform()
+                                        clicou_turnstile_nome = True
+                                        print("    [ANTI-CAPTCHA] Turnstile detectado na busca por Nome. Clique enviado...")
+                                    except Exception:
+                                        pass
 
                                 botoes_continuar = navegador.find_elements(By.XPATH, "//*[contains(translate(text(), 'continuar', 'CONTINUAR'), 'CONTINUAR') or @value='CONTINUAR' or @value='Continuar']")
-                                clicou = False
                                 for btn in botoes_continuar:
                                     if btn.is_displayed():
                                         try:
                                             print("    [ANTI-CAPTCHA] Clicando no botão CONTINUAR da busca por Nome...")
                                             btn.click()
                                             time.sleep(2)
-                                            clicou = True
+                                            clicou_turnstile_nome = False
                                             break
                                         except:
                                             pass
-                                
-                                if not clicou:
-                                    try:
-                                        acoes.aguardar_sucesso_cloudflare(timeout_captcha=2)
-                                    except:
-                                        pass
                                     
                             time.sleep(1)
                             espera_resultado += 1
