@@ -234,11 +234,29 @@ class BotTRF4:
                         if len(cf_widgets) > 0:
                             if not clicou_turnstile:
                                 try:
+                                    navegador.execute_script("arguments[0].scrollIntoView({block: 'center'});", cf_widgets[0])
+                                    time.sleep(0.5)
                                     from selenium.webdriver.common.action_chains import ActionChains
-                                    ActionChains(navegador).move_to_element(cf_widgets[0]).click().perform()
+                                    
+                                    # 1. Clica no centro do widget
+                                    try:
+                                        ActionChains(navegador).move_to_element(cf_widgets[0]).click().perform()
+                                    except: pass
+                                    
+                                    # 2. Clica deslocado para a esquerda (onde fica a checkbox) - Offset a partir do centro (Selenium 4)
+                                    try:
+                                        ActionChains(navegador).move_to_element_with_offset(cf_widgets[0], -100, 0).click().perform()
+                                    except: pass
+                                        
+                                    # 3. Clica deslocado assumindo top-left (Selenium 3 e compatibilidade)
+                                    try:
+                                        ActionChains(navegador).move_to_element_with_offset(cf_widgets[0], 30, 30).click().perform()
+                                    except: pass
+
                                     clicou_turnstile = True
-                                    print("    [ANTI-CAPTCHA] Turnstile detectado. Clique enviado. Aguardando...")
-                                except Exception:
+                                    print("    [ANTI-CAPTCHA] Turnstile detectado. Múltiplos cliques enviados (coords). Aguardando...")
+                                except Exception as e:
+                                    print(f"    [AVISO] Falha ao tentar clicar no Turnstile: {e}")
                                     pass
 
                             botoes_continuar = navegador.find_elements(By.XPATH, "//*[contains(translate(text(), 'continuar', 'CONTINUAR'), 'CONTINUAR') or @value='CONTINUAR' or @value='Continuar']")
@@ -336,11 +354,26 @@ class BotTRF4:
                             if len(cf_widgets) > 0:
                                 if not clicou_turnstile_nome:
                                     try:
+                                        navegador.execute_script("arguments[0].scrollIntoView({block: 'center'});", cf_widgets[0])
+                                        time.sleep(0.5)
                                         from selenium.webdriver.common.action_chains import ActionChains
-                                        ActionChains(navegador).move_to_element(cf_widgets[0]).click().perform()
+                                        
+                                        try:
+                                            ActionChains(navegador).move_to_element(cf_widgets[0]).click().perform()
+                                        except: pass
+                                        
+                                        try:
+                                            ActionChains(navegador).move_to_element_with_offset(cf_widgets[0], -100, 0).click().perform()
+                                        except: pass
+                                            
+                                        try:
+                                            ActionChains(navegador).move_to_element_with_offset(cf_widgets[0], 30, 30).click().perform()
+                                        except: pass
+
                                         clicou_turnstile_nome = True
-                                        print("    [ANTI-CAPTCHA] Turnstile detectado na busca por Nome. Clique enviado...")
-                                    except Exception:
+                                        print("    [ANTI-CAPTCHA] Turnstile detectado na busca por Nome. Múltiplos cliques enviados...")
+                                    except Exception as e:
+                                        print(f"    [AVISO] Falha ao tentar clicar no Turnstile: {e}")
                                         pass
 
                                 botoes_continuar = navegador.find_elements(By.XPATH, "//*[contains(translate(text(), 'continuar', 'CONTINUAR'), 'CONTINUAR') or @value='CONTINUAR' or @value='Continuar']")
