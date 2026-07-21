@@ -238,15 +238,20 @@ class BotTRF4:
                                     time.sleep(0.5)
                                     from selenium.webdriver.common.action_chains import ActionChains
                                     
-                                    # 1. Varredura de cliques (carpet-bombing) para acertar a checkbox independente do offset/escala
+                                    # 1. Varredura de cliques (sweep) cirúrgica na área da checkbox (canto esquerdo do widget)
                                     try:
+                                        # Obtém o rect real do widget para calcular a borda esquerda no Selenium 4 (relativo ao centro)
+                                        rect = navegador.execute_script("var r = arguments[0].getBoundingClientRect(); return {w: r.width, h: r.height};", cf_widgets[0])
+                                        width = rect['w']
+                                        center_x = width / 2
+                                        
+                                        # O widget Turnstile tem 300px. A checkbox fica entre 20 e 120px da borda esquerda.
+                                        start_offset = int(-center_x + 20)
+                                        end_offset = int(-center_x + 120)
+                                        
                                         ac = ActionChains(navegador)
-                                        # Sweep para Selenium 4 (centro)
-                                        for x in range(-140, 150, 20):
+                                        for x in range(start_offset, end_offset, 10):
                                             ac.move_to_element_with_offset(cf_widgets[0], x, 0).click()
-                                        # Sweep para Selenium 3 (top-left)
-                                        for x in range(10, 290, 20):
-                                            ac.move_to_element_with_offset(cf_widgets[0], x, 30).click()
                                         ac.perform()
                                     except: pass
                                     
@@ -257,22 +262,22 @@ class BotTRF4:
                                     except: pass
 
                                     clicou_turnstile = True
-                                    print("    [ANTI-CAPTCHA] Turnstile detectado. Varredura de cliques (sweep) enviada. Aguardando...")
+                                    print("    [ANTI-CAPTCHA] Turnstile detectado. Varredura de cliques (sweep) cirúrgica enviada. Aguardando...")
                                 except Exception as e:
                                     print(f"    [AVISO] Falha ao tentar interagir com o Turnstile: {e}")
                                     pass
 
-                            botoes_continuar = navegador.find_elements(By.XPATH, "//*[contains(translate(text(), 'continuar', 'CONTINUAR'), 'CONTINUAR') or @value='CONTINUAR' or @value='Continuar']")
-                            for btn in botoes_continuar:
-                                if btn.is_displayed():
-                                    try:
-                                        print("    [ANTI-CAPTCHA] Botão CONTINUAR visível. Clicando...")
-                                        btn.click()
-                                        time.sleep(2)
-                                        clicou_turnstile = False
-                                        break
-                                    except:
-                                        pass
+                                botoes_continuar = navegador.find_elements(By.XPATH, "//*[contains(translate(text(), 'continuar', 'CONTINUAR'), 'CONTINUAR') or contains(translate(@value, 'continuar', 'CONTINUAR'), 'CONTINUAR') or @name='sbmContinuar']")
+                                for btn in botoes_continuar:
+                                    if btn.is_displayed():
+                                        try:
+                                            print("    [ANTI-CAPTCHA] Botão CONTINUAR visível. Clicando...")
+                                            btn.click()
+                                            time.sleep(2)
+                                            clicou_turnstile = False
+                                            break
+                                        except:
+                                            pass
                                 
                         time.sleep(1)
                         espera_resultado += 1
@@ -362,11 +367,15 @@ class BotTRF4:
                                         from selenium.webdriver.common.action_chains import ActionChains
                                         
                                         try:
+                                            rect = navegador.execute_script("var r = arguments[0].getBoundingClientRect(); return {w: r.width, h: r.height};", cf_widgets[0])
+                                            width = rect['w']
+                                            center_x = width / 2
+                                            start_offset = int(-center_x + 20)
+                                            end_offset = int(-center_x + 120)
+                                            
                                             ac = ActionChains(navegador)
-                                            for x in range(-140, 150, 20):
+                                            for x in range(start_offset, end_offset, 10):
                                                 ac.move_to_element_with_offset(cf_widgets[0], x, 0).click()
-                                            for x in range(10, 290, 20):
-                                                ac.move_to_element_with_offset(cf_widgets[0], x, 30).click()
                                             ac.perform()
                                         except: pass
                                         
@@ -376,12 +385,12 @@ class BotTRF4:
                                         except: pass
 
                                         clicou_turnstile_nome = True
-                                        print("    [ANTI-CAPTCHA] Turnstile detectado na busca por Nome. Varredura de cliques (sweep) enviada...")
+                                        print("    [ANTI-CAPTCHA] Turnstile detectado na busca por Nome. Varredura de cliques (sweep) cirúrgica enviada...")
                                     except Exception as e:
                                         print(f"    [AVISO] Falha ao tentar interagir com o Turnstile: {e}")
                                         pass
 
-                                botoes_continuar = navegador.find_elements(By.XPATH, "//*[contains(translate(text(), 'continuar', 'CONTINUAR'), 'CONTINUAR') or @value='CONTINUAR' or @value='Continuar']")
+                                botoes_continuar = navegador.find_elements(By.XPATH, "//*[contains(translate(text(), 'continuar', 'CONTINUAR'), 'CONTINUAR') or contains(translate(@value, 'continuar', 'CONTINUAR'), 'CONTINUAR') or @name='sbmContinuar']")
                                 for btn in botoes_continuar:
                                     if btn.is_displayed():
                                         try:

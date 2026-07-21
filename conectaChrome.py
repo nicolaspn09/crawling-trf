@@ -235,13 +235,11 @@ class ChromeStealthManager:
         # Desativa detecções comuns de automação via flags do Chrome
         options.add_argument("--disable-blink-features=AutomationControlled")
 
-        # [ECONOMIA DE BANDA] Desativa carregamento de imagens para nao gastar o proxy residencial!
-        # Isso economiza cerca de 90% do consumo de GB por consulta.
-        prefs = {
-            "profile.managed_default_content_settings.images": 2,
-            # "profile.managed_default_content_settings.stylesheets": 2, # Pode quebrar o cloudflare se desativar CSS
-        }
-        options.add_experimental_option("prefs", prefs)
+        # [ECONOMIA DE BANDA] Desativado temporariamente pois o Cloudflare Turnstile exige imagens ativas para validar
+        # prefs = {
+        #     "profile.managed_default_content_settings.images": 2,
+        # }
+        # options.add_experimental_option("prefs", prefs)
 
         # Inicializa o driver (No Linux, usa monitor virtual para enganar o Cloudflare)
         if platform.system() == "Linux":
@@ -259,7 +257,7 @@ class ChromeStealthManager:
             if hasattr(self, 'display'):
                 navegador.xvfb_display = self.display
         else:
-            navegador = uc.Chrome(options=options, headless=False, use_subprocess=True)
+            navegador = uc.Chrome(options=options, headless=False, use_subprocess=True, version_main=150)
             navegador.maximize_window()
 
         # Validação: Verifica o IP de saída para confirmar se o proxy está ativo
