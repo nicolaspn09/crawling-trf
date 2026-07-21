@@ -153,7 +153,8 @@ class NavegadorPy:
         Coleta dinamicamente os links dos processos baseando-se na árvore real do DOM.
         """
         try:
-            elementos = self.navegador.find_elements(By.XPATH, "//div[@id='divConteudo']/a")
+            # elementos = self.navegador.find_elements(By.XPATH, "//div[@id='divConteudo']/a")
+            elementos = self.navegador.find_elements(By.XPATH, "//div[@id='divConteudo']/a | //*[@id='divConteudo']/a")
             
             dados_processos = []
             for el in elementos:
@@ -165,6 +166,7 @@ class NavegadorPy:
                     dados_processos.append({"titulo": texto, "url": href})
                     
             return dados_processos
+
         except UnexpectedAlertPresentException:
             try:
                 alert_text = self.navegador.switch_to.alert.text

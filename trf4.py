@@ -54,6 +54,7 @@ class BotTRF4:
         
         indice_atual = 2
         tentativas_cpf_global = 0
+        passou_captcha = False
         
         while indice_atual < len(lista_dados) + 2:
             linha = lista_dados[indice_atual - 2]
@@ -230,57 +231,86 @@ class BotTRF4:
                             break
                             
                         # 4. Verifica se a página parou num Cloudflare pós-pesquisa
-                        cf_widgets = navegador.find_elements(By.CLASS_NAME, "cf-turnstile")
-                        if len(cf_widgets) > 0:
-                            if not clicou_turnstile:
-                                try:
-                                    navegador.execute_script("arguments[0].scrollIntoView({block: 'center'});", cf_widgets[0])
-                                    time.sleep(0.5)
-                                    from selenium.webdriver.common.action_chains import ActionChains
-                                    
-                                    # 1. Varredura de cliques (sweep) cirúrgica na área da checkbox (canto esquerdo do widget)
-                                    try:
-                                        # Obtém o rect real do widget para calcular a borda esquerda no Selenium 4 (relativo ao centro)
-                                        rect = navegador.execute_script("var r = arguments[0].getBoundingClientRect(); return {w: r.width, h: r.height};", cf_widgets[0])
-                                        width = rect['w']
-                                        center_x = width / 2
-                                        
-                                        # O widget Turnstile tem 300px. A checkbox fica entre 20 e 120px da borda esquerda.
-                                        start_offset = int(-center_x + 20)
-                                        end_offset = int(-center_x + 120)
-                                        
-                                        ac = ActionChains(navegador)
-                                        for x in range(start_offset, end_offset, 10):
-                                            ac.move_to_element_with_offset(cf_widgets[0], x, 0).click()
-                                        ac.perform()
-                                    except: pass
-                                    
-                                    # 2. Ativação via teclado (fallback)
-                                    try:
-                                        from selenium.webdriver.common.keys import Keys
-                                        cf_widgets[0].send_keys(Keys.SPACE)
-                                    except: pass
+                        if not passou_captcha:
+                            cf_widgets = navegador.find_elements(By.CLASS_NAME, "cf-turnstile")
+                            if len(cf_widgets) > 0:
+                                # Obtém o token do Cloudflare via JS (Situação 1 e 3)
+                                token = navegador.execute_script(
+                                    "var el = document.querySelector('[name=\"cf-turnstile-response\"]'); return el ? el.value : '';"
+                                )
 
-                                    clicou_turnstile = True
-                                    print("    [ANTI-CAPTCHA] Turnstile detectado. Varredura de cliques (sweep) cirúrgica enviada. Aguardando...")
-                                except Exception as e:
-                                    print(f"    [AVISO] Falha ao tentar interagir com o Turnstile: {e}")
-                                    pass
-
-                                botoes_continuar = navegador.find_elements(By.XPATH, "//*[contains(translate(text(), 'continuar', 'CONTINUAR'), 'CONTINUAR') or contains(translate(@value, 'continuar', 'CONTINUAR'), 'CONTINUAR') or @name='sbmContinuar']")
-                                for btn in botoes_continuar:
-                                    if btn.is_displayed():
+                                # Se o token já existe (Situação 1: Já resolvido / Auto-resolvido)
+                                if len(token) > 0:
+                                    botoes_continuar = navegador.find_elements(By.XPATH, "//*[contains(translate(text(), 'continuar', 'CONTINUAR'), 'CONTINUAR') or contains(translate(@value, 'continuar', 'CONTINUAR'),'CONTINUAR') or @name='sbmContinuar']")
+                                    for btn in botoes_continuar:
+                                        if btn.is_displayed():
+                                            try:
+                                                print("    [ANTI-CAPTCHA] Turnstile resolvido. Clicando em CONTINUAR...")
+                                                btn.click()
+                                                time.sleep(2)
+                                                clicou_turnstile = False
+                                                passou_captcha = True  # Libera o loop de espera
+                                                break
+                                            except:
+                                                pass
+                                else:
+                                    if not clicou_turnstile:
                                         try:
-                                            print("    [ANTI-CAPTCHA] Botão CONTINUAR visível. Clicando...")
-                                            btn.click()
-                                            time.sleep(2)
-                                            clicou_turnstile = False
-                                            break
-                                        except:
+                                            navegador.execute_script("arguments[0].scrollIntoView({block: 'center'});", cf_widgets[0])
+                                            time.sleep(0.5)
+                                            from selenium.webdriver.common.action_chains import ActionChains
+                                            
+                                            # 1. Varredura de cliques (sweep) cirúrgica na área da checkbox (canto esquerdo do widget)
+                                            try:
+                                                # Obtém o rect real do widget para calcular a borda esquerda no Selenium 4 (relativo ao centro)
+                                                rect = navegador.execute_script("var r = arguments[0].getBoundingClientRect(); return {w: r.width, h: r.height};", cf_widgets[0])
+                                                width = rect['w']
+                                                center_x = width / 2
+                                                
+                                                # O widget Turnstile tem 300px. A checkbox fica entre 20 e 120px da borda esquerda.
+                                                start_offset = int(-center_x + 20)
+                                                end_offset = int(-center_x + 120)
+                                                
+                                                ac = ActionChains(navegador)
+                                                for x in range(start_offset, end_offset, 10):
+                                                    ac.move_to_element_with_offset(cf_widgets[0], x, 0).click()
+                                                ac.perform()
+                                            except: pass
+                                            
+                                            # 2. Ativação via teclado (fallback)
+                                            try:
+                                                from selenium.webdriver.common.keys import Keys
+                                                cf_widgets[0].send_keys(Keys.SPACE)
+                                            except: 
+                                                pass
+
+                                            clicou_turnstile = True
+                                            print("    [ANTI-CAPTCHA] Turnstile detectado. Varredura de cliques (sweep) cirúrgica enviada. Aguardando...")
+                                        except Exception as e:
+                                            print(f"    [AVISO] Falha ao tentar interagir com o Turnstile: {e}")
                                             pass
-                                
-                        time.sleep(1)
-                        espera_resultado += 1
+
+                                        botoes_continuar = navegador.find_elements(By.XPATH, "//*[contains(translate(text(), 'continuar', 'CONTINUAR'), 'CONTINUAR') or contains(translate(@value, 'continuar', 'CONTINUAR'), 'CONTINUAR') or @name='sbmContinuar']")
+                                        for btn in botoes_continuar:
+                                            if btn.is_displayed():
+                                                try:
+                                                    print("    [ANTI-CAPTCHA] Botão CONTINUAR visível. Clicando...")
+                                                    btn.click()
+                                                    time.sleep(2)
+                                                    clicou_turnstile = False
+                                                    passou_captcha = True
+                                                    print("    [ANTI-CAPTCHA] Turnstile vazio. Cliques de varredura enviados...")
+                                                except Exception as e:
+                                                    print(f"    [AVISO] Falha ao interagir com Turnstile: {e}")
+                                    
+                            if not passou_captcha:
+                                time.sleep(1)
+                                espera_resultado += 1
+                            else:
+                                break
+
+                        else:
+                            break
                         
                     if espera_resultado >= 25 and not tem_alerta:
                         print("    [ERRO] Timeout aguardando resultado da pesquisa do CPF.")
@@ -420,7 +450,8 @@ class BotTRF4:
                         from selenium.common.exceptions import UnexpectedAlertPresentException
                         
                         try:
-                            links_conteudo = navegador.find_elements(By.XPATH, "//div[@id='divConteudo']/a")
+                            # links_conteudo = navegador.find_elements(By.XPATH, "//div[@id='divConteudo']/a")
+                            links_conteudo = navegador.find_elements(By.XPATH, "//div[@id='divConteudo']/a | //*[@id='divConteudo']/a")
                             
                             # CORREÇÃO: Se redirecionou direto para o processo único na pesquisa por NOME
                             if not links_conteudo:
@@ -451,7 +482,8 @@ class BotTRF4:
                                 acoes.aguardar_sucesso_cloudflare(timeout_captcha=20)
                                 time.sleep(5)
                                 # Tenta buscar os links novamente apos resolver o captcha
-                                links_conteudo = navegador.find_elements(By.XPATH, "//div[@id='divConteudo']/a")
+                                # links_conteudo = navegador.find_elements(By.XPATH, "//div[@id='divConteudo']/a")
+                                links_conteudo = navegador.find_elements(By.XPATH, "//div[@id='divConteudo']/a | //*[@id='divConteudo']/a")
                             else:
                                 try:
                                     import os
@@ -498,6 +530,9 @@ class BotTRF4:
                     if atualizar_status_callback:
                         atualizar_status_callback(indice, "BRANCO - NADA CONSTA", "", "")
                     db.inserir_oportunidade(cliente_id, "BRANCO", "NADA CONSTA", "Descartado")
+                    indice_atual += 1
+                    tentativas_cpf_global = 0
+                    
                     continue
                     
                 if erro_site and not lista_processos:
