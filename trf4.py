@@ -238,25 +238,28 @@ class BotTRF4:
                                     time.sleep(0.5)
                                     from selenium.webdriver.common.action_chains import ActionChains
                                     
-                                    # 1. Clica no centro do widget
+                                    # 1. Varredura de cliques (carpet-bombing) para acertar a checkbox independente do offset/escala
                                     try:
-                                        ActionChains(navegador).move_to_element(cf_widgets[0]).click().perform()
+                                        ac = ActionChains(navegador)
+                                        # Sweep para Selenium 4 (centro)
+                                        for x in range(-140, 150, 20):
+                                            ac.move_to_element_with_offset(cf_widgets[0], x, 0).click()
+                                        # Sweep para Selenium 3 (top-left)
+                                        for x in range(10, 290, 20):
+                                            ac.move_to_element_with_offset(cf_widgets[0], x, 30).click()
+                                        ac.perform()
                                     except: pass
                                     
-                                    # 2. Clica deslocado para a esquerda (onde fica a checkbox) - Offset a partir do centro (Selenium 4)
+                                    # 2. Ativação via teclado (fallback)
                                     try:
-                                        ActionChains(navegador).move_to_element_with_offset(cf_widgets[0], -100, 0).click().perform()
-                                    except: pass
-                                        
-                                    # 3. Clica deslocado assumindo top-left (Selenium 3 e compatibilidade)
-                                    try:
-                                        ActionChains(navegador).move_to_element_with_offset(cf_widgets[0], 30, 30).click().perform()
+                                        from selenium.webdriver.common.keys import Keys
+                                        cf_widgets[0].send_keys(Keys.SPACE)
                                     except: pass
 
                                     clicou_turnstile = True
-                                    print("    [ANTI-CAPTCHA] Turnstile detectado. Múltiplos cliques enviados (coords). Aguardando...")
+                                    print("    [ANTI-CAPTCHA] Turnstile detectado. Varredura de cliques (sweep) enviada. Aguardando...")
                                 except Exception as e:
-                                    print(f"    [AVISO] Falha ao tentar clicar no Turnstile: {e}")
+                                    print(f"    [AVISO] Falha ao tentar interagir com o Turnstile: {e}")
                                     pass
 
                             botoes_continuar = navegador.find_elements(By.XPATH, "//*[contains(translate(text(), 'continuar', 'CONTINUAR'), 'CONTINUAR') or @value='CONTINUAR' or @value='Continuar']")
@@ -359,21 +362,23 @@ class BotTRF4:
                                         from selenium.webdriver.common.action_chains import ActionChains
                                         
                                         try:
-                                            ActionChains(navegador).move_to_element(cf_widgets[0]).click().perform()
+                                            ac = ActionChains(navegador)
+                                            for x in range(-140, 150, 20):
+                                                ac.move_to_element_with_offset(cf_widgets[0], x, 0).click()
+                                            for x in range(10, 290, 20):
+                                                ac.move_to_element_with_offset(cf_widgets[0], x, 30).click()
+                                            ac.perform()
                                         except: pass
                                         
                                         try:
-                                            ActionChains(navegador).move_to_element_with_offset(cf_widgets[0], -100, 0).click().perform()
-                                        except: pass
-                                            
-                                        try:
-                                            ActionChains(navegador).move_to_element_with_offset(cf_widgets[0], 30, 30).click().perform()
+                                            from selenium.webdriver.common.keys import Keys
+                                            cf_widgets[0].send_keys(Keys.SPACE)
                                         except: pass
 
                                         clicou_turnstile_nome = True
-                                        print("    [ANTI-CAPTCHA] Turnstile detectado na busca por Nome. Múltiplos cliques enviados...")
+                                        print("    [ANTI-CAPTCHA] Turnstile detectado na busca por Nome. Varredura de cliques (sweep) enviada...")
                                     except Exception as e:
-                                        print(f"    [AVISO] Falha ao tentar clicar no Turnstile: {e}")
+                                        print(f"    [AVISO] Falha ao tentar interagir com o Turnstile: {e}")
                                         pass
 
                                 botoes_continuar = navegador.find_elements(By.XPATH, "//*[contains(translate(text(), 'continuar', 'CONTINUAR'), 'CONTINUAR') or @value='CONTINUAR' or @value='Continuar']")
