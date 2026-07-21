@@ -229,18 +229,14 @@ class BotTRF4:
                             break
                             
                         # 4. Verifica se a página parou num Cloudflare pós-pesquisa
-                        if len(navegador.find_elements(By.XPATH, "//iframe[contains(@src, 'cloudflare')]")) > 0:
+                        cf_widgets = navegador.find_elements(By.CLASS_NAME, "cf-turnstile")
+                        if len(cf_widgets) > 0:
                             try:
-                                iframe = navegador.find_element(By.XPATH, "//iframe[contains(@src, 'cloudflare')]")
-                                navegador.switch_to.frame(iframe)
-                                from selenium.webdriver.support.ui import WebDriverWait
-                                from selenium.webdriver.support import expected_conditions as EC
-                                box = WebDriverWait(navegador, 1).until(EC.element_to_be_clickable((By.XPATH, "//body")))
-                                box.click()
-                                navegador.switch_to.default_content()
+                                from selenium.webdriver.common.action_chains import ActionChains
+                                ActionChains(navegador).move_to_element(cf_widgets[0]).click().perform()
                                 time.sleep(1)
-                            except:
-                                navegador.switch_to.default_content()
+                            except Exception:
+                                pass
 
                             botoes_continuar = navegador.find_elements(By.XPATH, "//*[contains(translate(text(), 'continuar', 'CONTINUAR'), 'CONTINUAR') or @value='CONTINUAR' or @value='Continuar']")
                             clicou = False
@@ -291,7 +287,8 @@ class BotTRF4:
                                     # Tenta pegar o número do processo do topo da página se existir
                                     topo = navegador.find_elements(By.XPATH, "//*[@id='txtNumProcesso']")
                                     if topo and topo[0].text: numero_unico = topo[0].text
-                                except: pass
+                                except: 
+                                    pass
                                 lista_processos = [{'url': navegador.current_url, 'titulo': numero_unico}]
                         except:
                             pass
@@ -338,18 +335,14 @@ class BotTRF4:
                             if len(navegador.find_elements(By.XPATH, "//*[@id='divInfraAreaDadosProcesso']")) > 0:
                                 break
                                 
-                            if len(navegador.find_elements(By.XPATH, "//iframe[contains(@src, 'cloudflare')]")) > 0:
+                            cf_widgets = navegador.find_elements(By.CLASS_NAME, "cf-turnstile")
+                            if len(cf_widgets) > 0:
                                 try:
-                                    iframe = navegador.find_element(By.XPATH, "//iframe[contains(@src, 'cloudflare')]")
-                                    navegador.switch_to.frame(iframe)
-                                    from selenium.webdriver.support.ui import WebDriverWait
-                                    from selenium.webdriver.support import expected_conditions as EC
-                                    box = WebDriverWait(navegador, 1).until(EC.element_to_be_clickable((By.XPATH, "//body")))
-                                    box.click()
-                                    navegador.switch_to.default_content()
+                                    from selenium.webdriver.common.action_chains import ActionChains
+                                    ActionChains(navegador).move_to_element(cf_widgets[0]).click().perform()
                                     time.sleep(1)
-                                except:
-                                    navegador.switch_to.default_content()
+                                except Exception:
+                                    pass
 
                                 botoes_continuar = navegador.find_elements(By.XPATH, "//*[contains(translate(text(), 'continuar', 'CONTINUAR'), 'CONTINUAR') or @value='CONTINUAR' or @value='Continuar']")
                                 clicou = False
@@ -366,7 +359,7 @@ class BotTRF4:
                                 
                                 if not clicou:
                                     try:
-                                        acoes.aguardar_sucesso_cloudflare(timeout_captcha=20)
+                                        acoes.aguardar_sucesso_cloudflare(timeout_captcha=2)
                                     except:
                                         pass
                                     
