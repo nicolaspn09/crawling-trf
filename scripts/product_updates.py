@@ -13,10 +13,10 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 dotenv_path = find_dotenv(os.path.join(script_dir, '..', '.env'))
 load_dotenv(dotenv_path, override=True)
 
-# Configurações do GitHub e OpenRouter
+# Configurações do GitHub e Groq
 REPO = "nicolaspn09/crawling-trf"
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-70b-versatile")
 
 # Configurações de SMTP para Envio de E-mail
 SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
@@ -52,9 +52,9 @@ def obter_commits_recentes(days=1):
         return None
 
 def gerar_resumo_humano(lista_commits):
-    """Envia os commits para o OpenRouter para gerar o resumo humanizado."""
-    if not OPENROUTER_API_KEY:
-        print("[AVISO] OPENROUTER_API_KEY não encontrada no .env. Impossível gerar resumo por IA.")
+    """Envia os commits para o Groq para gerar o resumo humanizado."""
+    if not GROQ_API_KEY:
+        print("[AVISO] GROQ_API_KEY não encontrada no .env. Impossível gerar resumo por IA.")
         return None
 
     commits_text = "\n".join(lista_commits)
@@ -77,46 +77,52 @@ def gerar_resumo_humano(lista_commits):
 
     try:
         headers = {
-            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+            "Authorization": f"Bearer {GROQ_API_KEY}",
             "Content-Type": "application/json"
         }
         json_data = {
-            "model": OPENROUTER_MODEL,
+            "model": GROQ_MODEL,
             "messages": [{"role": "user", "content": prompt}]
         }
-        res = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=json_data, timeout=30)
+        res = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=json_data, timeout=30)
         
         if res.status_code == 200:
             res_json = res.json()
             return res_json['choices'][0]['message']['content'].strip()
         else:
-            print(f"[AVISO] Erro no OpenRouter: {res.status_code} - {res.text}")
+            print(f"[AVISO] Erro no Groq: {res.status_code} - {res.text}")
             return None
     except Exception as e:
-        print(f"[ERRO] Falha ao chamar OpenRouter: {e}")
+        print(f"[ERRO] Falha ao chamar Groq: {e}")
         return None
 
 def enviar_email(assunto, corpo):
-    """Envia o e-mail usando o servidor SMTP configurado."""
+    """Envia o e-mail usando o servidor SMTP configurado para múltiplos destinatários."""
     if not SMTP_USER or not SMTP_PASSWORD:
         print("\n[AVISO] Credenciais SMTP_USER ou SMTP_PASSWORD não configuradas no .env.")
         print("E-mail não pôde ser enviado automaticamente.")
         return False
 
-    msg = MIMEMultipart()
-    msg['From'] = SMTP_USER
-    msg['To'] = EMAIL_DESTINATARIO
-    msg['Subject'] = assunto
-
-    msg.attach(MIMEText(corpo, 'plain', 'utf-8'))
+    destinatarios = [email.strip() for email in EMAIL_DESTINATARIO.split(',') if email.strip()]
+    if not destinatarios:
+        print("[AVISO] Nenhum destinatário válido configurado em EMAIL_DESTINATARIO.")
+        return False
 
     try:
         server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
         server.starttls()
         server.login(SMTP_USER, SMTP_PASSWORD)
-        server.sendmail(SMTP_USER, EMAIL_DESTINATARIO, msg.as_string())
+        
+        for dest in destinatarios:
+            msg = MIMEMultipart()
+            msg['From'] = SMTP_USER
+            msg['To'] = dest
+            msg['Subject'] = assunto
+            msg.attach(MIMEText(corpo, 'plain', 'utf-8'))
+            server.sendmail(SMTP_USER, dest, msg.as_string())
+            print(f"[OK] E-mail enviado com sucesso para {dest}!")
+            
         server.quit()
-        print(f"[OK] E-mail enviado com sucesso para {EMAIL_DESTINATARIO}!")
         return True
     except Exception as e:
         print(f"[ERRO] Erro ao enviar e-mail por SMTP: {e}")

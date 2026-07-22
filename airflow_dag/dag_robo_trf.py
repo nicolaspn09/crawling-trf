@@ -51,6 +51,18 @@ executa_robo_trf = SSHOperator(
     trigger_rule='all_success'
 )
 
+# Caminho do script de resumo de atualizações
+caminho_script_resumo = "/home/codigos_airflow/lodetti-silveira-crawling-trf/scripts/product_updates.py"
+
+# Tarefa para executar o script de atualizações de produto via SSH
+executa_resumo_atualizacoes = SSHOperator(
+    task_id='ssh-executa_resumo_atualizacoes',
+    ssh_conn_id='rpa_vps_host',
+    command=f'python3 "{caminho_script_resumo}" --days 1',
+    dag=dag,
+    trigger_rule='all_success'
+)
+
 # Definindo o início e o fim
 inicio = EmptyOperator(
     task_id='inicio',
@@ -63,4 +75,4 @@ fim = EmptyOperator(
 )
 
 # Definindo a ordem das tarefas
-inicio >> executa_baixar_arquivos >> executa_robo_trf >> fim
+inicio >> executa_baixar_arquivos >> [executa_robo_trf, executa_resumo_atualizacoes] >> fim
