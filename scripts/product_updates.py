@@ -16,7 +16,7 @@ load_dotenv(dotenv_path, override=True)
 # Configurações do GitHub e Groq
 REPO = "nicolaspn09/crawling-trf"
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-70b-versatile")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 # Configurações de SMTP para Envio de E-mail
 SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
@@ -25,25 +25,70 @@ SMTP_USER = os.getenv("SMTP_USER")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 EMAIL_DESTINATARIO = os.getenv("EMAIL_DESTINATARIO", "nicolaspn09@gmail.com")
 
+def obter_diff_snippet(patch) -> str:
+    """Extrai as linhas adicionadas de um arquivo modificado."""
+    if not patch:
+        return ""
+    added = [
+        line[1:].strip()
+        for line in patch.split("\n")
+        if line.startswith("+") and not line.startswith("+++") and line[1:].strip()
+    ]
+    return " | ".join(added[:10])[:300]
+
 def obter_commits_recentes(days=1):
-    """Busca os commits do repositório público nas últimas X horas."""
+    """Busca os commits e seus respectivos arquivos e diffs detalhados."""
     since_dt = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
     url = f"https://api.github.com/repos/{REPO}/commits?since={since_dt}"
     
+    headers = {
+        "Accept": "application/vnd.github.v3+json"
+    }
+    
+    # Se o usuário configurou um token do GitHub (do outro projeto ou geral), usa no header para evitar rate limit
+    git_token = os.getenv("GIT_TOKEN") or os.getenv("GIT_TOKEN_ROIT")
+    if git_token:
+        headers["Authorization"] = f"token {git_token}"
+
     try:
-        res = requests.get(url, timeout=15)
+        res = requests.get(url, headers=headers, timeout=15)
         if res.status_code == 200:
             commits = res.json()
-            # Filtra commits de merge automáticos
-            filtered_commits = []
-            for c in commits:
+            commits_com_detalhes = []
+            
+            # Limita a análise nos últimos 10 commits para evitar prompts gigantes e rate limits
+            for c in commits[:10]:
+                sha = c['sha']
                 msg = c['commit']['message'].strip()
                 author = c['commit']['author']['name']
-                # Pula commits vazios ou de merge automáticos padrão
+                
                 if msg.startswith("Merge branch") or msg.startswith("Merge pull request"):
                     continue
-                filtered_commits.append(f"- {msg} (por {author})")
-            return filtered_commits
+                
+                # Para cada commit, busca os arquivos alterados e os patches de diff
+                detail_url = f"https://api.github.com/repos/{REPO}/commits/{sha}"
+                detail_res = requests.get(detail_url, headers=headers, timeout=10)
+                files_context = []
+                
+                if detail_res.status_code == 200:
+                    detail_data = detail_res.json()
+                    for f in detail_data.get('files', []):
+                        filename = f.get('filename')
+                        status = f.get('status')
+                        patch = f.get('patch', '')
+                        diff_snippet = obter_diff_snippet(patch)
+                        if diff_snippet:
+                            files_context.append(f"  - Arquivo: {filename} ({status})\n    Adições: {diff_snippet}")
+                        else:
+                            files_context.append(f"  - Arquivo: {filename} ({status})")
+                
+                commit_info = f"Commit por {author}: {msg}\n"
+                if files_context:
+                    commit_info += "Alterações no código:\n" + "\n".join(files_context)
+                
+                commits_com_detalhes.append(commit_info)
+                
+            return commits_com_detalhes
         else:
             print(f"[AVISO] Erro ao acessar GitHub API: {res.status_code} - {res.text}")
             return None
@@ -52,26 +97,25 @@ def obter_commits_recentes(days=1):
         return None
 
 def gerar_resumo_humano(lista_commits):
-    """Envia os commits para o Groq para gerar o resumo humanizado."""
+    """Envia os commits detalhados para o Groq para gerar o resumo humanizado e específico."""
     if not GROQ_API_KEY:
         print("[AVISO] GROQ_API_KEY não encontrada no .env. Impossível gerar resumo por IA.")
         return None
 
-    commits_text = "\n".join(lista_commits)
+    commits_text = "\n\n".join(lista_commits)
     
     prompt = (
         "Você é um desenvolvedor de software sênior da Nexus Systems, focado em RPA e automação.\n"
-        "Seu objetivo é resumir os commits do dia de um robô de consulta processual (eproc/TRF4) "
-        "em uma mensagem de WhatsApp curta, direta e com tom extremamente humano, natural e informal.\n\n"
-        f"Aqui está a lista de commits de hoje:\n{commits_text}\n\n"
+        "Seu objetivo é resumir as atualizações diárias de um robô de consulta processual (eproc/TRF4) "
+        "em uma mensagem curta, direta e com tom extremamente humano, natural e informal, pronta para ser enviada para a equipe e parceiros no WhatsApp.\n\n"
+        f"Aqui está a lista de commits de hoje com as alterações detalhadas nos arquivos de código:\n{commits_text}\n\n"
         "Diretrizes da Mensagem:\n"
-        "1. Tom Extremamente Humano e Conversacional: Escreva como se um desenvolvedor estivesse contando as novidades "
-        "do dia de forma espontânea no privado ou no grupo de WhatsApp. Não use termos corporativos ou formais rígidos "
-        "(ex: 'Temos a satisfação de anunciar', 'Implementamos melhorias de performance'). Comece de forma amigável e direta.\n"
-        "2. Linguagem Prática: Foque no benefício real e no que mudou no funcionamento do robô.\n"
-        "3. Sem jargões técnicos excessivos (evite falar de logs, migrations, git, hooks, Vercel, docker, CI/CD, etc. a menos que seja algo crucial para explicar a alteração de forma simples).\n"
-        "4. Formato curto e limpo: Use bullet points amigáveis e emojis moderados. Deve caber perfeitamente na tela de um celular sem exigir muita rolagem.\n"
-        "5. Se as alterações forem puramente internas sem impacto perceptível no uso, retorne: "
+        "1. SEM EMOJIS: É estritamente proibido usar emojis no texto. Remova qualquer emoji.\n"
+        "2. TOM EXTREMAMENTE HUMANO E DIRETO: Escreva como se você estivesse contando as novidades do dia de forma espontânea e natural para um colega no WhatsApp. Não use frases robóticas ou formais (ex: 'Temos a satisfação de informar', 'Implementamos melhorias de performance').\n"
+        "3. ESPECIFICIDADE MÁXIMA (NÃO SEJA GENÉRICO): Leia atentamente as alterações no código para entender o que foi feito na prática. Diga exatamente o que mudou no funcionamento do robô. Exemplo: se adicionamos colunas no banco de dados e palavras-chave de busca para as novas teses (Tema 322, Emendas Constitucionais e Buraco Negro), mencione-as diretamente e explique como o robô agora as detecta e grava nas respectivas colunas.\n"
+        "4. LINGUAGEM PRÁTICA: Em vez de dizer 'melhoramos o processamento', descreva o comportamento final: 'O robô agora acessa e analisa as sentenças buscando palavras-chave do Tema 322, Emendas e Buraco Negro, e atualiza a flag específica daquela tese no banco'.\n"
+        "5. FORMATO LIMPO: Use tópicos simples. Deve ser curto e caber na tela de um celular.\n"
+        "6. Se as alterações forem puramente internas sem impacto perceptível no uso, retorne: "
         "'Hoje as atualizações foram apenas internas na estrutura do código, sem mudanças no funcionamento do robô.'\n"
     )
 
@@ -142,8 +186,8 @@ def main():
         print("[INFO] Nenhum commit novo encontrado no período.")
         sys.exit(0)
 
-    print(f"[INFO] {len(commits)} commits coletados.")
-    print("[INFO] Gerando resumo humanizado via inteligência artificial...")
+    print(f"[INFO] {len(commits)} commits coletados com detalhes de modificação.")
+    print("[INFO] Gerando resumo humanizado via inteligência artificial (Groq)...")
     resumo = gerar_resumo_humano(commits)
 
     if not resumo:
