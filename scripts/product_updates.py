@@ -107,16 +107,17 @@ def gerar_resumo_humano(lista_commits):
     prompt = (
         "Você é um desenvolvedor de software sênior da Nexus Systems, focado em RPA e automação.\n"
         "Seu objetivo é resumir as atualizações diárias de um robô de consulta processual (eproc/TRF4) "
-        "em uma mensagem curta, direta e com tom extremamente humano, natural e informal, pronta para ser enviada para a equipe e parceiros no WhatsApp.\n\n"
+        "em uma mensagem curta, direta e com tom extremamente amigável, natural e informal, pronta para ser enviada para a equipe e parceiros no WhatsApp.\n\n"
         f"Aqui está a lista de commits de hoje com as alterações detalhadas nos arquivos de código:\n{commits_text}\n\n"
         "Diretrizes da Mensagem:\n"
-        "1. SEM EMOJIS: É estritamente proibido usar emojis no texto. Remova qualquer emoji.\n"
-        "2. TOM EXTREMAMENTE HUMANO E DIRETO: Escreva como se você estivesse contando as novidades do dia de forma espontânea e natural para um colega no WhatsApp. Não use frases robóticas ou formais (ex: 'Temos a satisfação de informar', 'Implementamos melhorias de performance').\n"
-        "3. ESPECIFICIDADE MÁXIMA (NÃO SEJA GENÉRICO): Leia atentamente as alterações no código para entender o que foi feito na prática. Diga exatamente o que mudou no funcionamento do robô. Exemplo: se adicionamos colunas no banco de dados e palavras-chave de busca para as novas teses (Tema 322, Emendas Constitucionais e Buraco Negro), mencione-as diretamente e explique como o robô agora as detecta e grava nas respectivas colunas.\n"
-        "4. LINGUAGEM PRÁTICA: Em vez de dizer 'melhoramos o processamento', descreva o comportamento final: 'O robô agora acessa e analisa as sentenças buscando palavras-chave do Tema 322, Emendas e Buraco Negro, e atualiza a flag específica daquela tese no banco'.\n"
-        "5. FORMATO LIMPO: Use tópicos simples. Deve ser curto e caber na tela de um celular.\n"
-        "6. Se as alterações forem puramente internas sem impacto perceptível no uso, retorne: "
-        "'Hoje as atualizações foram apenas internas na estrutura do código, sem mudanças no funcionamento do robô.'\n"
+        "1. SEM EMOJIS: É estritamente proibido usar emojis no texto. Não adicione nenhum emoji.\n"
+        "2. SAUDAÇÃO AMIGÁVEL E NATURAL (ENTRADA): Comece sempre a mensagem com uma saudação calorosa, informal e natural direcionada à equipe (ex: 'Fala pessoal, tudo bem? Passando para compartilhar as novidades que subiram hoje no robô:' ou 'Fala galera, beleza? Segue o resumo das atualizações de hoje no robô processual:'). Evite entradas secas ou frias como 'Olha, hoje...'.\n"
+        "3. TOM EXTREMAMENTE HUMANO E DIRETO: Escreva de forma espontânea, como se você estivesse contando as novidades para um colega próximo de trabalho no WhatsApp. Não use termos corporativos rígidos ou formais.\n"
+        "4. ESPECIFICIDADE MÁXIMA (NÃO SEJA GENÉRICO): Explique exatamente o que o robô faz agora na prática (ex: se adicionamos suporte a novas teses como Tema 322, Emendas Constitucionais e Buraco Negro, mencione-as diretamente e explique como o robô agora as detecta e grava nas respectivas colunas no banco de dados).\n"
+        "5. LINGUAGEM PRÁTICA: Em vez de dizer 'melhoramos o processamento', descreva o comportamento final: 'O robô agora lê a sentença buscando as palavras-chave do Tema 322, Emendas e Buraco Negro, e atualiza a coluna correspondente no banco'.\n"
+        "6. FORMATO LIMPO: Use tópicos simples ou parágrafos diretos. Deve ser curto e caber na tela de um celular.\n"
+        "7. Se as alterações forem puramente internas sem impacto perceptível no uso, retorne: "
+        "'Fala pessoal! Hoje as atualizações foram apenas internas na estrutura do código, sem mudanças no funcionamento do robô.'\n"
     )
 
     try:
