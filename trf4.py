@@ -48,7 +48,7 @@ class BotTRF4:
         except Exception:
             return False, None
 
-    def executar(self, lista_dados, atualizar_status_callback=None, estado="SC"):
+    def executar(self, lista_dados, atualizar_status_callback=None, estado="SC", tese="CONCOMITANTES"):
         db = Database()
         navegador, firefox_pids = self._inicia_navegador()
         
@@ -566,6 +566,14 @@ class BotTRF4:
                     match_num = re.search(r'\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}', numero_processo_bruto)
                     numero_processo_limpo = match_num.group(0) if match_num else numero_processo_bruto
 
+                    # Inicializa o dicionário de sinalizadores para as teses do banco de dados
+                    args_tese = {
+                        "tem_tese_concomitante": False,
+                        "tem_tese_322": False,
+                        "tem_tese_emendas": False,
+                        "tem_tese_buraco_negro": False
+                    }
+
                     print(f"\n[CONFERÊNCIA {idx}] Acessando link: {numero_processo_bruto}")
                     
                     # Nova versão do analisar_conteudo_processo que retorna dados tabelados
@@ -588,7 +596,7 @@ class BotTRF4:
                         print("-> Cor Planilha: BRANCO (Motivo: Não é uma ação movida contra o INSS)")
                         if atualizar_status_callback:
                             atualizar_status_callback(indice, "BRANCO - Não movida contra o INSS", numero_processo_limpo, assunto_processo)
-                        db.inserir_processo(cliente_id, numero_processo_limpo, link_processo=proc['url'], polo_passivo=polo_passivo, tem_tese_concomitante=False, status_merito="Descartado", assunto=assunto_processo)
+                        db.inserir_processo(cliente_id, numero_processo_limpo, link_processo=proc['url'], polo_passivo=polo_passivo, status_merito="Descartado", assunto=assunto_processo, **args_tese)
                         db.inserir_oportunidade(cliente_id, "BRANCO", "Não é ação contra INSS", "Descartado")
                         continue
                         
@@ -613,20 +621,63 @@ class BotTRF4:
                         aba_processo = navegador.current_window_handle
                         navegador.switch_to.new_window('tab')
                         
-                        termos_tese = [
-                            "ATIVIDADES CONCOMITANTES", "CONTRIBUIÇÕES CONCOMITANTES", "ATIVIDADE PRINCIPAL", 
-                            "ATIVIDADE SECUNDÁRIA", "EXERCÍCIO SIMULTÂNEO DE ATIVIDADES", "MÚLTIPLOS VÍNCULOS EMPREGATÍCIOS", 
-                            "MÚLTIPLAS ATIVIDADES REMUNERADAS", "SALÁRIO DE CONTRIBUIÇÃO", "SOMA DOS SALÁRIOS DE CONTRIBUIÇÃO", 
-                            "INCLUSÃO DE SALÁRIOS DE CONTRIBUIÇÃO", "CÔMPUTO DE CONTRIBUIÇÕES", "REVISÃO DE APOSENTADORIA", 
-                            "REVISÃO DE BENEFÍCIO", "REVISÃO DA RMI", "RENDA MENSAL INICIAL (RMI)", "RECÁLCULO DA RMI", 
-                            "RECÁLCULO DO BENEFÍCIO", "SALÁRIO DE BENEFÍCIO", "CÁLCULO DO BENEFÍCIO PREVIDENCIÁRIO", 
-                            "REVISÃO DO CÁLCULO DA APOSENTADORIA", "ART. 32 DA LEI Nº 8.213/91", "REVISÃO PREVIDENCIÁRIA", 
-                            "DIFERENÇAS VENCIDAS E VINCENDAS", "PAGAMENTO DE DIFERENÇAS DECORRENTES DA REVISÃO", 
-                            "REFLEXOS FINANCEIROS DA REVISÃO", "REVISÃO DO BENEFÍCIO NB", "REVISÃO DE RENDA MENSAL INICIAL", 
-                            "REVISÃO DE APOSENTADORIA", "CÁLCULO DE BENEFÍCIO PREVIDENCIÁRIO", "TEMPO DE CONTRIBUIÇÃO", 
-                            "REAJUSTES E REVISÕES ESPECÍFICAS", "ALTERAÇÃO DO COEFICIENTE DE CÁLCULO", "BENEFÍCIOS EM ESPÉCIE", 
-                            "DIREITO PREVIDENCIÁRIO"
-                        ]
+                        MAPA_TERMOS_TESES = {
+                            "CONCOMITANTES": [
+                                "ATIVIDADES CONCOMITANTES", "CONTRIBUIÇÕES CONCOMITANTES", "ATIVIDADE PRINCIPAL", 
+                                "ATIVIDADE SECUNDÁRIA", "EXERCÍCIO SIMULTÂNEO DE ATIVIDADES", "MÚLTIPLOS VÍNCULOS EMPREGATÍCIOS", 
+                                "MÚLTIPLAS ATIVIDADES REMUNERADAS", "SALÁRIO DE CONTRIBUIÇÃO", "SOMA DOS SALÁRIOS DE CONTRIBUIÇÃO", 
+                                "INCLUSÃO DE SALÁRIOS DE CONTRIBUIÇÃO", "CÔMPUTO DE CONTRIBUIÇÕES", "REVISÃO DE APOSENTADORIA", 
+                                "REVISÃO DE BENEFÍCIO", "REVISÃO DA RMI", "RENDA MENSAL INICIAL (RMI)", "RECÁLCULO DA RMI", 
+                                "RECÁLCULO DO BENEFÍCIO", "SALÁRIO DE BENEFÍCIO", "CÁLCULO DO BENEFÍCIO PREVIDENCIÁRIO", 
+                                "REVISÃO DO CÁLCULO DA APOSENTADORIA", "ART. 32 DA LEI Nº 8.213/91", "REVISÃO PREVIDENCIÁRIA", 
+                                "DIFERENÇAS VENCIDAS E VINCENDAS", "PAGAMENTO DE DIFERENÇAS DECORRENTES DA REVISÃO", 
+                                "REFLEXOS FINANCEIROS DA REVISÃO", "REVISÃO DO BENEFÍCIO NB", "REVISÃO DE RENDA MENSAL INICIAL", 
+                                "REVISÃO DE APOSENTADORIA", "CÁLCULO DE BENEFÍCIO PREVIDENCIÁRIO", "TEMPO DE CONTRIBUIÇÃO", 
+                                "REAJUSTES E REVISÕES ESPECÍFICAS", "ALTERAÇÃO DO COEFICIENTE DE CÁLCULO", "BENEFÍCIOS EM ESPÉCIE", 
+                                "DIREITO PREVIDENCIÁRIO"
+                            ],
+                            "TEMA_322": [
+                                "AUXÍLIO-ACIDENTE", "APOSENTADORIA POR IDADE RURAL", "SEGURADO ESPECIAL", "RENDA MENSAL INICIAL (RMI)", 
+                                "PERÍODO BÁSICO DE CÁLCULO (PBC)", "REVISÃO DE BENEFÍCIO", "REVISÃO DA RMI", "INCREMENTO OU MAJORAÇÃO DA RMI", 
+                                "CÁLCULO DA APOSENTADORIA", "SALÁRIO DE BENEFÍCIO", "SALÁRIO-DE-BENEFÍCIO", "BENEFÍCIO SUPERIOR AO SALÁRIO MÍNIMO", 
+                                "INCLUSÃO DO AUXÍLIO-ACIDENTE", "CÔMPUTO DO AUXÍLIO-ACIDENTE", "INCORPORAÇÃO DO AUXÍLIO-ACIDENTE", 
+                                "CONSIDERAÇÃO DO AUXÍLIO-ACIDENTE NO CÁLCULO DA APOSENTADORIA", "REFLEXOS DO AUXÍLIO-ACIDENTE", 
+                                "REVISÃO DE APOSENTADORIA RURAL", "REVISÃO DA APOSENTADORIA POR IDADE RURAL", "VALOR DA APOSENTADORIA RURAL", 
+                                "RECÁLCULO DA APOSENTADORIA RURAL", "RECÁLCULO DA RMI", "REVISÃO PARA INCLUSÃO DO AUXÍLIO-ACIDENTE", 
+                                "DIFERENÇAS VENCIDAS E VINCENDAS", "REVISÃO DO BENEFÍCIO NB", "PAGAMENTO DAS DIFERENÇAS DECORRENTES DA REVISÃO", 
+                                "REFLEXOS FINANCEIROS DA REVISÃO", "CONCESSÃO DE REVISÃO PREVIDENCIÁRIA", "REVISÃO DE RENDA MENSAL INICIAL", 
+                                "REVISÃO DE APOSENTADORIA", "REAJUSTES E REVISÕES ESPECÍFICAS", "ALTERAÇÃO DO COEFICIENTE DE CÁLCULO", 
+                                "CÁLCULO DE BENEFÍCIO PREVIDENCIÁRIO", "BENEFÍCIOS EM ESPÉCIE", "DIREITO PREVIDENCIÁRIO"
+                            ],
+                            "EMENDAS": [
+                                "TETO PREVIDENCIÁRIO", "REVISÃO DO TETO", "LIMITAÇÃO AO TETO", "TETO MÁXIMO DO SALÁRIO DE CONTRIBUIÇÃO", 
+                                "SALÁRIO-DE-BENEFÍCIO LIMITADO AO TETO", "RENDA MENSAL INICIAL (RMI)", "REVISÃO DA RMI", 
+                                "REVISÃO DE BENEFÍCIO", "REVISÃO DE APOSENTADORIA", "READEQUAÇÃO AO TETO", 
+                                "ADEQUAÇÃO AOS NOVOS TETOS CONSTITUCIONAIS", "EMENDA CONSTITUCIONAL Nº 20/1998", 
+                                "EMENDA CONSTITUCIONAL Nº 41/2003", "EXCEDENTE AO TETO", "RECUPERAÇÃO DE DIFERENÇAS", 
+                                "RECOMPOSIÇÃO DA RENDA MENSAL", "SALÁRIO-DE-BENEFÍCIO", "CÁLCULO DA RMI", 
+                                "DIFERENÇAS VENCIDAS E VINCENDAS", "PAGAMENTO DE DIFERENÇAS", "REVISÃO PREVIDENCIÁRIA", 
+                                "REAJUSTE DE BENEFÍCIO", "BENEFÍCIOS LIMITADOS AO TETO", "TETOS DAS ECS 20/98 E 41/03", 
+                                "REVISÃO DE RENDA MENSAL INICIAL", "REAJUSTES E REVISÕES ESPECÍFICAS", "ALTERAÇÃO DO COEFICIENTE DE CÁLCULO", 
+                                "CÁLCULO DE BENEFÍCIO PREVIDENCIÁRIO", "APOSENTADORIA POR IDADE RURAL", "BENEFÍCIOS EM ESPÉCIE", 
+                                "DIREITO PREVIDENCIÁRIO"
+                            ],
+                            "BURACO_NEGRO": [
+                                "BURACO NEGRO PREVIDENCIÁRIO", "ART. 144 DA LEI Nº 8.213/91", "REVISÃO DO ART. 144", 
+                                "RECÁLCULO DA RENDA MENSAL INICIAL (RMI)", "REVISÃO DE BENEFÍCIO CONCEDIDO ENTRE 05/10/1988 E 05/04/1991", 
+                                "READEQUAÇÃO DA RENDA MENSAL INICIAL", "DIFERENÇAS DECORRENTES DA REVISÃO DO ART. 144", 
+                                "REVISÃO DE APOSENTADORIA CONCEDIDA NO PERÍODO DE TRANSIÇÃO", "BENEFÍCIO CONCEDIDO ANTES DA LEI Nº 8.213/91", 
+                                "REVISÃO DE BENEFÍCIO DO PERÍODO CONHECIDO COMO BURACO NEGRO", "REPROCESSAMENTO DO BENEFÍCIO", 
+                                "REVISÃO ADMINISTRATIVA PREVISTA NA LEI Nº 8.213/91", "RENDA MENSAL INICIAL INCORRETA", 
+                                "DIFERENÇAS DE BENEFÍCIO PREVIDENCIÁRIO", "REVISÃO DE APOSENTADORIA POR ERRO NO RECÁLCULO LEGAL", 
+                                "REVISÃO DE RENDA MENSAL INICIAL", "REVISÃO DE BENEFÍCIO", "REVISÃO DE APOSENTADORIA", 
+                                "REAJUSTES E REVISÕES ESPECÍFICAS", "ALTERAÇÃO DO COEFICIENTE DE CÁLCULO", 
+                                "CÁLCULO DE BENEFÍCIO PREVIDENCIÁRIO", "BENEFÍCIOS EM ESPÉCIE", "DIREITO PREVIDENCIÁRIO", 
+                                "RECÁLCULO DE BENEFÍCIO", "REVISÃO DE BENEFÍCIO CONCEDIDO ANTES DA LEI Nº 8.213/91"
+                            ]
+                        }
+                        
+                        termos_tese = MAPA_TERMOS_TESES.get(tese, MAPA_TERMOS_TESES["CONCOMITANTES"])
                         
                         for link in links_sentencas:
                             navegador.get(link)
@@ -664,11 +715,21 @@ class BotTRF4:
                         print("-> Nenhuma sentença ou decisão com link encontrada nas fases.")
                         link_principal = None
 
+                    if possui_tese:
+                        if tese == "CONCOMITANTES":
+                            args_tese["tem_tese_concomitante"] = True
+                        elif tese == "TEMA_322":
+                            args_tese["tem_tese_322"] = True
+                        elif tese == "EMENDAS":
+                            args_tese["tem_tese_emendas"] = True
+                        elif tese == "BURACO_NEGRO":
+                            args_tese["tem_tese_buraco_negro"] = True
+
                     if not possui_tese:
                         print("-> Cor Planilha: BRANCO (Motivo: Ação contra o INSS, mas NÃO encontrou a tese na sentença/decisão)")
                         if atualizar_status_callback:
                             atualizar_status_callback(indice, "BRANCO - Outra tese jurídica", numero_processo_limpo, assunto_processo)
-                        db.inserir_processo(cliente_id, numero_processo_limpo, link_processo=proc['url'], polo_passivo=polo_passivo, tem_tese_concomitante=False, status_merito="Descartado", link_sentenca=link_principal, assunto=assunto_processo)
+                        db.inserir_processo(cliente_id, numero_processo_limpo, link_processo=proc['url'], polo_passivo=polo_passivo, status_merito="Descartado", link_sentenca=link_principal, assunto=assunto_processo, **args_tese)
                         db.inserir_oportunidade(cliente_id, "BRANCO", "Ação contra o INSS, mas trata de outra tese jurídica", "Descartado")
                         continue
                         
@@ -703,7 +764,7 @@ class BotTRF4:
 
                     if atualizar_status_callback:
                         atualizar_status_callback(indice, status_rpa, numero_processo_limpo, assunto_processo)
-                    db.inserir_processo(cliente_id, numero_processo_limpo, link_processo=proc['url'], polo_passivo=polo_passivo, tem_tese_concomitante=True, status_merito=status_merito, link_sentenca=link_principal, assunto=assunto_processo)
+                    db.inserir_processo(cliente_id, numero_processo_limpo, link_processo=proc['url'], polo_passivo=polo_passivo, status_merito=status_merito, link_sentenca=link_principal, assunto=assunto_processo, **args_tese)
                     db.inserir_oportunidade(cliente_id, status_rpa, motivo, fase_oportunidade)
 
                     time.sleep(random.uniform(1.0, 2.0))

@@ -28,6 +28,9 @@ class Database:
             try:
                 self.cursor.execute("ALTER TABLE processos ADD COLUMN IF NOT EXISTS link_sentenca TEXT;")
                 self.cursor.execute("ALTER TABLE processos ADD COLUMN IF NOT EXISTS assunto TEXT;")
+                self.cursor.execute("ALTER TABLE processos ADD COLUMN IF NOT EXISTS tem_tese_322 BOOLEAN DEFAULT FALSE;")
+                self.cursor.execute("ALTER TABLE processos ADD COLUMN IF NOT EXISTS tem_tese_emendas BOOLEAN DEFAULT FALSE;")
+                self.cursor.execute("ALTER TABLE processos ADD COLUMN IF NOT EXISTS tem_tese_buraco_negro BOOLEAN DEFAULT FALSE;")
             except Exception as ex:
                 print(f"[Aviso DB] Não foi possível verificar/criar colunas automaticamente: {ex}")
         except Exception as e:
@@ -49,20 +52,29 @@ class Database:
         result = self.cursor.fetchone()
         return result['id'] if result else None
 
-    def inserir_processo(self, cliente_id, numero_processo, tribunal='TRF4', link_processo=None, polo_passivo=None, tem_tese_concomitante=False, status_merito=None, link_sentenca=None, assunto=None):
+    def inserir_processo(self, cliente_id, numero_processo, tribunal='TRF4', link_processo=None, polo_passivo=None, 
+                         tem_tese_concomitante=False, status_merito=None, link_sentenca=None, assunto=None,
+                         tem_tese_322=False, tem_tese_emendas=False, tem_tese_buraco_negro=False):
         query = """
             INSERT INTO processos 
-            (cliente_id, numero_processo, tribunal, link_processo, polo_passivo, tem_tese_concomitante, status_merito, link_sentenca, assunto)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            (cliente_id, numero_processo, tribunal, link_processo, polo_passivo, 
+             tem_tese_concomitante, tem_tese_322, tem_tese_emendas, tem_tese_buraco_negro, 
+             status_merito, link_sentenca, assunto)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (numero_processo) DO UPDATE SET
                 status_merito = EXCLUDED.status_merito,
                 tem_tese_concomitante = EXCLUDED.tem_tese_concomitante,
+                tem_tese_322 = EXCLUDED.tem_tese_322,
+                tem_tese_emendas = EXCLUDED.tem_tese_emendas,
+                tem_tese_buraco_negro = EXCLUDED.tem_tese_buraco_negro,
                 polo_passivo = EXCLUDED.polo_passivo,
                 link_sentenca = EXCLUDED.link_sentenca,
                 assunto = EXCLUDED.assunto
             RETURNING id;
         """
-        self.cursor.execute(query, (cliente_id, numero_processo, tribunal, link_processo, polo_passivo, tem_tese_concomitante, status_merito, link_sentenca, assunto))
+        self.cursor.execute(query, (cliente_id, numero_processo, tribunal, link_processo, polo_passivo, 
+                                    tem_tese_concomitante, tem_tese_322, tem_tese_emendas, tem_tese_buraco_negro, 
+                                    status_merito, link_sentenca, assunto))
         result = self.cursor.fetchone()
         return result['id'] if result else None
 

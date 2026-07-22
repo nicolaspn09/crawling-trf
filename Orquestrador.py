@@ -4,6 +4,18 @@ import openpyxl
 from GoogleDrive import GoogleDriveManager
 from GoogleSheets import GoogleSheets
 
+def mapear_nome_tese(nome_pasta):
+    nome_upper = nome_pasta.upper()
+    if "CONCOMITANTE" in nome_upper:
+        return "CONCOMITANTES"
+    elif "322" in nome_upper:
+        return "TEMA_322"
+    elif "EMENDA" in nome_upper or "EC" in nome_upper:
+        return "EMENDAS"
+    elif "BURACO NEGRO" in nome_upper or "BN" in nome_upper:
+        return "BURACO_NEGRO"
+    return None
+
 class OrquestradorDrive:
     def __init__(self, diretorio_json, map_estados_bots):
         """
@@ -21,11 +33,12 @@ class OrquestradorDrive:
         pastas_raiz = self.drive.listar_arquivos(self.parent_folder_id, mime_type='application/vnd.google-apps.folder')
         
         for pasta_tese in pastas_raiz:
-            if "CONCOMITANTE" not in pasta_tese['name'].upper():
-                print(f"Ignorando tese (não é concomitante): {pasta_tese['name']}")
+            tese_key = mapear_nome_tese(pasta_tese['name'])
+            if not tese_key:
+                print(f"Ignorando pasta (não é uma tese mapeada): {pasta_tese['name']}")
                 continue
                 
-            print(f"Encontrada tese concomitante: {pasta_tese['name']}")
+            print(f"Encontrada tese: {pasta_tese['name']} (Chave: {tese_key})")
             
             pastas_tese = self.drive.listar_arquivos(pasta_tese['id'], mime_type='application/vnd.google-apps.folder')
             pasta_estados = next((p for p in pastas_tese if p['name'].upper() == "ESTADOS"), None)
@@ -39,13 +52,13 @@ class OrquestradorDrive:
                     
                     if nome_estado in self.map_estados_bots:
                         print(f"    -> Encontrado estado mapeado: {nome_estado}")
-                        self._processar_estado(pasta_uf, self.map_estados_bots[nome_estado])
+                        self._processar_estado(pasta_uf, self.map_estados_bots[nome_estado], tese_key)
                     else:
                         print(f"    -> Estado ignorado (sem bot mapeado): {nome_estado}")
             else:
                 print(f"  -> Pasta ESTADOS não encontrada em {pasta_tese['name']}")
 
-    def _processar_estado(self, pasta_uf, processador_bot):
+    def _processar_estado(self, pasta_uf, processador_bot, tese):
         analisado_folder_id = self.drive.buscar_ou_criar_pasta("ANALISADO", pasta_uf['id'])
         arquivos = self.drive.listar_arquivos(pasta_uf['id'])
         
@@ -115,7 +128,7 @@ class OrquestradorDrive:
             # Executa o bot com Single Responsibility
             # O bot processa e não precisa saber de onde vieram os dados
             try:
-                processador_bot(lista_dados, atualizar_status_callback=callback_status)
+                processador_bot(lista_dados, atualizar_status_callback=callback_status, tese=tese)
                 print(f"         Bot finalizou o processamento de {arquivo['name']}.")
             except Exception as e:
                 print(f"         [ERRO] Falha ao rodar o bot para {arquivo['name']}: {str(e)}")
