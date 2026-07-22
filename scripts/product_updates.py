@@ -115,9 +115,9 @@ def gerar_resumo_humano(lista_commits):
         "3. TOM EXTREMAMENTE HUMANO E DIRETO: Escreva de forma espontânea, como se você estivesse contando as novidades para um colega próximo de trabalho no WhatsApp. Não use termos corporativos rígidos ou formais.\n"
         "4. ESPECIFICIDADE MÁXIMA (NÃO SEJA GENÉRICO): Explique exatamente o que o robô faz agora na prática (ex: se adicionamos suporte a novas teses como Tema 322, Emendas Constitucionais e Buraco Negro, mencione-as diretamente e explique como o robô agora as detecta e grava nas respectivas colunas no banco de dados).\n"
         "5. LINGUAGEM PRÁTICA: Em vez de dizer 'melhoramos o processamento', descreva o comportamento final: 'O robô agora lê a sentença buscando as palavras-chave do Tema 322, Emendas e Buraco Negro, e atualiza a coluna correspondente no banco'.\n"
-        "6. FORMATO LIMPO: Use tópicos simples ou parágrafos diretos. Deve ser curto e caber na tela de um celular.\n"
-        "7. Se as alterações forem puramente internas sem impacto perceptível no uso, retorne: "
-        "'Fala pessoal! Hoje as atualizações foram apenas internas na estrutura do código, sem mudanças no funcionamento do robô.'\n"
+        "6. QUEBRAS DE LINHA E ESPAÇAMENTO (OBRIGATÓRIO): Não escreva em um parágrafo corrido. Use quebras de linha duplas (\\n\\n) para separar a saudação inicial, cada um dos tópicos de atualização (que devem usar hífen '-') e a mensagem de encerramento. O texto deve ter bastante espaçamento vertical para ser legível no celular.\n"
+        "7. Se as alterações forem puramente internas sem impacto perceptível no uso, retorne:\n"
+        "'Fala pessoal!\n\nHoje as atualizações foram apenas internas na estrutura do código, sem mudanças no funcionamento do robô.'\n"
     )
 
     try:
