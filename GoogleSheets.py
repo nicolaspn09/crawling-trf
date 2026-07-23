@@ -217,3 +217,93 @@ class GoogleSheets:
             ).execute()
         except Exception as e:
             print(f"Erro ao pintar planilha: {e}")
+
+    def criar_aba_se_nao_existir(self, nome_aba):
+            """Cria uma nova aba com o nome especificado caso ela não exista."""
+            SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+            creds = None
+            if os.path.exists(self.arquivo_token):
+                creds = Credentials.from_authorized_user_file(self.arquivo_token, SCOPES)
+            if not creds or not creds.valid:
+                return
+
+            service = build("sheets", "v4", credentials=creds)
+            try:
+                body = {
+                    "requests": [
+                        {
+                            "addSheet": {
+                                "properties": {
+                                    "title": nome_aba
+                                }
+                            }
+                        }
+                    ]
+                }
+                service.spreadsheets().batchUpdate(spreadsheetId=self.id_planilha, body=body).execute()
+                print(f"         [SHEETS] Aba '{nome_aba}' criada com sucesso.")
+
+                # --- ADICIONE ESTA PARTE AQUI ---
+                # Como a aba acabou de ser criada, adicionamos o cabeçalho imediatamente na primeira linha
+                cabecalho = ["Nome", "CPF", "Número Processo", "Assunto", "Status"]
+                self.anexar_linha(nome_aba, cabecalho)
+                
+            except Exception:
+                # Se der erro porque a aba já existe, ignora silenciosamente
+                pass
+
+    def anexar_linha(self, nome_aba, colunas):
+            """Insere uma nova linha de dados no final da aba especificada."""
+            SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+            creds = None
+            if os.path.exists(self.arquivo_token):
+                creds = Credentials.from_authorized_user_file(self.arquivo_token, SCOPES)
+            if not creds or not creds.valid:
+                return
+
+            service = build("sheets", "v4", credentials=creds)
+            body = {
+                "values": [colunas]
+            }
+            service.spreadsheets().values().append(
+                spreadsheetId=self.id_planilha,
+                range=f"{nome_aba}!A1",
+                valueInputOption="USER_ENTERED",
+                body=body
+            ).execute()
+
+    def ocultar_linha(self, linha_index):
+        """Oculta a linha especificada (1-based) na primeira aba da planilha."""
+        SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+        creds = None
+        if os.path.exists(self.arquivo_token):
+            creds = Credentials.from_authorized_user_file(self.arquivo_token, SCOPES)
+        if not creds or not creds.valid:
+            return
+
+        service = build("sheets", "v4", credentials=creds)
+        try:
+            sheet_metadata = service.spreadsheets().get(spreadsheetId=self.id_planilha).execute()
+            sheet_id = sheet_metadata.get('sheets', [])[0].get('properties', {}).get('sheetId', 0)
+        except Exception:
+            sheet_id = 0
+
+        body = {
+            "requests": [
+                {
+                    "updateDimensionProperties": {
+                        "range": {
+                            "sheetId": sheet_id,
+                            "dimension": "ROWS",
+                            "startIndex": linha_index - 1, # 0-based
+                            "endIndex": linha_index
+                        },
+                        "properties": {
+                            "hiddenByUser": True
+                        },
+                        "fields": "hiddenByUser"
+                    }
+                }
+            ]
+        }
+        service.spreadsheets().batchUpdate(spreadsheetId=self.id_planilha, body=body).execute()

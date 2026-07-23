@@ -98,31 +98,64 @@ class OrquestradorDrive:
                 ws = wb.active
             
             def callback_status(indice, status, numero_processo="", assunto=""):
+                # -------------------------------------------------------------
+                # 1. PASSO A: Resgatar os dados do cliente (CPF e Nome)
+                # -------------------------------------------------------------
+                linha_original = lista_dados[indice - 2]
+                cpf = linha_original[0].strip() if len(linha_original) > 0 else ""
+                nome = str(linha_original[2]).strip() if len(linha_original) > 2 and linha_original[2] is not None else ""
+
+                # -------------------------------------------------------------
+                # 2. PASSO B: Mudar a verificação de cor para termos semânticos
+                # -------------------------------------------------------------
+                # Se você mudar os status de string no 'trf4.py', podemos checar o termo diretamente
+                # Ex: checar se a frase contém 'Tese localizada' ou 'Descartado'
+                processo_encontrado = "Tese localizada" in status or "Descartado" in status
+
                 if planilha_api:
                     try:
-                        planilha_api.atualizar_celula(f"BT{indice}", numero_processo)
-                        planilha_api.atualizar_celula(f"BU{indice}", assunto)
-                        planilha_api.atualizar_celula(f"BV{indice}", status)
-                        planilha_api.pintar_linha(indice, status)
-                    except Exception as e:
-                        # Fallback caso a aba não se chame "Geral"
-                        try:
-                            # Tenta sem o nome da aba (atualiza a primeira visível)
-                            planilha_api.range_dados = ""
+                        if processo_encontrado:
+                            # 1. Garante que a aba "Processos Encontrados" existe no Google Sheets
+                            planilha_api.criar_aba_se_nao_existir("Processos Encontrados")
+
+                            # 2. Adiciona a linha de dados na nova aba
+                            planilha_api.anexar_linha("Processos Encontrados", [nome, cpf, numero_processo, assunto, status])
+
+                            # 3. Oculta a linha original na aba "Geral"
+                            planilha_api.ocultar_linha(indice)
+                        else:
+                            # Se não encontrou, mantém visível e apenas atualiza o status na aba Geral
                             planilha_api.atualizar_celula(f"BT{indice}", numero_processo)
                             planilha_api.atualizar_celula(f"BU{indice}", assunto)
                             planilha_api.atualizar_celula(f"BV{indice}", status)
                             planilha_api.pintar_linha(indice, status)
-                        except Exception as e2:
-                            print(f"         [AVISO] Não foi possível pintar a linha {indice} no Google Sheets. Erro: {e2}")
+                    except Exception as e:
+                        print(f"         [AVISO] Erro ao processar Sheets: {e}")
                 else:
                     if ws:
                         try:
-                            ws[f"BT{indice}"] = numero_processo
-                            ws[f"BU{indice}"] = assunto
-                            ws[f"BV{indice}"] = status
-                        except Exception:
-                            pass
+                            if processo_encontrado:
+                                # 1. Garante que a aba "Processos Encontrados" existe no Excel local
+                                if "Processos Encontrados" not in wb.sheetnames:
+                                    ws_encontrados = wb.create_sheet("Processos Encontrados")
+                                    # Cabeçalhos da nova aba
+                                    ws_encontrados.append(["Nome", "CPF", "Número Processo", "Assunto", "Status"])
+                                else:
+                                    ws_encontrados = wb["Processos Encontrados"]
+
+                                # 2. Adiciona a linha com os dados
+                                ws_encontrados.append([nome, cpf, numero_processo, assunto, status])
+
+                                # 3. Oculta a linha na aba original
+                                ws.row_dimensions[indice].hidden = True
+                            else:
+                                # Se não encontrou, apenas escreve as colunas no fim
+                                ws[f"BT{indice}"] = numero_processo
+                                ws[f"BU{indice}"] = assunto
+                                ws[f"BV{indice}"] = status
+                        except Exception as e:
+                            print(f"         [AVISO] Erro ao processar Excel local: {e}")
+
                     print(f"         Status (Offline/Excel): Linha {indice} -> {status} | Proc: {numero_processo} | Assunto: {assunto}")
 
             # Executa o bot com Single Responsibility
