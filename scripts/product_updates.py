@@ -25,6 +25,44 @@ SMTP_USER = os.getenv("SMTP_USER")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 EMAIL_DESTINATARIO = os.getenv("EMAIL_DESTINATARIO", "nicolaspn09@gmail.com")
 
+def eh_arquivo_relevante(filename) -> bool:
+    """Retorna True se o arquivo modificado fizer parte do core do robô ou CRM."""
+    # Ignora documentação e arquivos auxiliares
+    if filename.startswith("Base - Documentação/") or filename.startswith("scripts/"):
+        return False
+        
+    ignored_files = [
+        ".gitignore",
+        "README.md",
+        "test_repo.py",
+        "check_db.py",
+        "check_html.py",
+        "check_groq_env.py",
+        "test_groq_models.py",
+        "test_all_groq_keys.py",
+        "test_vps.py",
+        "teste_local_sc.py",
+        "teste_nome.py",
+        "check_import_errors.py",
+        "check_uptime.py",
+        "check_vps_airflow.py",
+        "check_vps_ports.py",
+        "check_vps_ufw.py",
+        "search_logs.py"
+    ]
+    if filename in ignored_files:
+        return False
+        
+    # Relevante se for um script python core, migration ou código no CRM/Fases
+    if filename.endswith(".py") or filename.endswith(".sql"):
+        return True
+    if filename.startswith("crm_backend/") or filename.startswith("consulta_fases/"):
+        return True
+    if filename.startswith("airflow_dag/"):
+        return True
+        
+    return False
+
 def obter_diff_snippet(patch) -> str:
     """Extrai as linhas adicionadas de um arquivo modificado."""
     if not patch:
@@ -36,8 +74,8 @@ def obter_diff_snippet(patch) -> str:
     ]
     return " | ".join(added[:10])[:300]
 
-def obter_commits_recentes(days=1):
-    """Busca os commits e seus respectivos arquivos e diffs detalhados."""
+def obter_commits_recentes(days=1, last_sha=None):
+    """Busca os commits, filtra pelo último SHA processado e descarta arquivos irrelevantes."""
     since_dt = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
     url = f"https://api.github.com/repos/{REPO}/commits?since={since_dt}"
     
@@ -45,7 +83,6 @@ def obter_commits_recentes(days=1):
         "Accept": "application/vnd.github.v3+json"
     }
     
-    # Se o usuário configurou um token do GitHub (do outro projeto ou geral), usa no header para evitar rate limit
     git_token = os.getenv("GIT_TOKEN") or os.getenv("GIT_TOKEN_ROIT")
     if git_token:
         headers["Authorization"] = f"token {git_token}"
@@ -54,9 +91,27 @@ def obter_commits_recentes(days=1):
         res = requests.get(url, headers=headers, timeout=15)
         if res.status_code == 200:
             commits = res.json()
+            if not commits:
+                return [], None
+            
+            # Filtra os commits para pegar apenas os mais recentes que o último SHA processado
+            if last_sha:
+                index_ultimo = -1
+                for idx, c in enumerate(commits):
+                    if c['sha'] == last_sha:
+                        index_ultimo = idx
+                        break
+                if index_ultimo != -1:
+                    commits = commits[:index_ultimo]
+            
+            if not commits:
+                return [], None
+
+            # O SHA mais recente a ser guardado para a próxima execução
+            novo_ultimo_sha = commits[0]['sha']
             commits_com_detalhes = []
             
-            # Limita a análise nos últimos 10 commits para evitar prompts gigantes e rate limits
+            # Limita a análise nos últimos 10 commits para evitar prompts gigantes
             for c in commits[:10]:
                 sha = c['sha']
                 msg = c['commit']['message'].strip()
@@ -68,36 +123,49 @@ def obter_commits_recentes(days=1):
                 # Para cada commit, busca os arquivos alterados e os patches de diff
                 detail_url = f"https://api.github.com/repos/{REPO}/commits/{sha}"
                 detail_res = requests.get(detail_url, headers=headers, timeout=10)
-                files_context = []
                 
                 if detail_res.status_code == 200:
                     detail_data = detail_res.json()
+                    files_context = []
+                    any_relevant = False
+                    
                     for f in detail_data.get('files', []):
                         filename = f.get('filename')
+                        
+                        # Filtra apenas modificações de arquivos relevantes
+                        if not eh_arquivo_relevante(filename):
+                            continue
+                            
+                        any_relevant = True
                         status = f.get('status')
                         patch = f.get('patch', '')
                         diff_snippet = obter_diff_snippet(patch)
+                        
                         if diff_snippet:
                             files_context.append(f"  - Arquivo: {filename} ({status})\n    Adições: {diff_snippet}")
                         else:
                             files_context.append(f"  - Arquivo: {filename} ({status})")
+                    
+                    # Se nenhuma alteração no commit for relevante para o CRM ou TRF, ignora
+                    if not any_relevant:
+                        continue
+                        
+                    commit_info = f"Commit por {author}: {msg}\n"
+                    if files_context:
+                        commit_info += "Alterações no código:\n" + "\n".join(files_context)
+                    
+                    commits_com_detalhes.append(commit_info)
                 
-                commit_info = f"Commit por {author}: {msg}\n"
-                if files_context:
-                    commit_info += "Alterações no código:\n" + "\n".join(files_context)
-                
-                commits_com_detalhes.append(commit_info)
-                
-            return commits_com_detalhes
+            return commits_com_detalhes, novo_ultimo_sha
         else:
             print(f"[AVISO] Erro ao acessar GitHub API: {res.status_code} - {res.text}")
-            return None
+            return [], None
     except Exception as e:
         print(f"[ERRO] Falha de conexão com GitHub: {e}")
-        return None
+        return [], None
 
 def gerar_resumo_humano(lista_commits):
-    """Envia os commits detalhados para o Groq para gerar o resumo humanizado e específico."""
+    """Envia os commits detalhados para o Groq para gerar o resumo humanizado."""
     if not GROQ_API_KEY:
         print("[AVISO] GROQ_API_KEY não encontrada no .env. Impossível gerar resumo por IA.")
         return None
@@ -180,14 +248,33 @@ def main():
         if arg == "--days" and i + 1 < len(sys.argv):
             dias = int(sys.argv[i + 1])
 
+    # 1. Recupera o último commit SHA processado
+    path_ultimo = os.path.join(script_dir, "ultimo_commit.txt")
+    last_sha = None
+    if os.path.exists(path_ultimo):
+        try:
+            with open(path_ultimo, "r") as f:
+                last_sha = f.read().strip()
+            print(f"[INFO] Último commit processado anteriormente: {last_sha}")
+        except Exception as e:
+            print(f"[AVISO] Não foi possível ler ultimo_commit.txt: {e}")
+
     print(f"[INFO] Coletando commits das últimas {dias*24} horas no repositório {REPO}...")
-    commits = obter_commits_recentes(days=dias)
+    commits, novo_ultimo_sha = obter_commits_recentes(days=dias, last_sha=last_sha)
 
     if not commits:
-        print("[INFO] Nenhum commit novo encontrado no período.")
+        print("[INFO] Nenhum commit novo e relevante para o CRM/TRF encontrado no período.")
+        # Se achou novos commits no GitHub mas nenhum era relevante, atualiza o SHA do mesmo jeito
+        if novo_ultimo_sha:
+            try:
+                with open(path_ultimo, "w") as f:
+                    f.write(novo_ultimo_sha)
+                print(f"[INFO] Guardado SHA {novo_ultimo_sha} como processado.")
+            except Exception as e:
+                print(f"[AVISO] Falha ao atualizar ultimo_commit.txt: {e}")
         sys.exit(0)
 
-    print(f"[INFO] {len(commits)} commits coletados com detalhes de modificação.")
+    print(f"[INFO] {len(commits)} commits relevantes coletados com detalhes de modificação.")
     print("[INFO] Gerando resumo humanizado via inteligência artificial (Groq)...")
     resumo = gerar_resumo_humano(commits)
 
@@ -199,7 +286,6 @@ def main():
     try:
         print(resumo)
     except UnicodeEncodeError:
-        # Envia como bytes codificados ou substitui caracteres incompatíveis para evitar quebras no console Windows
         try:
             sys.stdout.buffer.write(resumo.encode(sys.stdout.encoding or 'utf-8', errors='replace'))
             print()
@@ -210,7 +296,16 @@ def main():
     # Envia e-mail
     data_hoje = datetime.now().strftime("%d/%m/%Y")
     assunto_email = f"Atualizações do Robô TRF4 - {data_hoje}"
-    enviar_email(assunto_email, resumo)
+    email_sucesso = enviar_email(assunto_email, resumo)
+
+    # 2. Se o envio foi feito ou se concluímos o resumo, salva o SHA do commit mais recente processado
+    if email_sucesso and novo_ultimo_sha:
+        try:
+            with open(path_ultimo, "w") as f:
+                f.write(novo_ultimo_sha)
+            print(f"[INFO] Atualizado ultimo_commit.txt com o SHA {novo_ultimo_sha}.")
+        except Exception as e:
+            print(f"[AVISO] Falha ao gravar ultimo_commit.txt: {e}")
 
 if __name__ == "__main__":
     main()
