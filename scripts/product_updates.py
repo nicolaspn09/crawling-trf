@@ -13,6 +13,12 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 dotenv_path = find_dotenv(os.path.join(script_dir, '..', '.env'))
 load_dotenv(dotenv_path, override=True)
 
+# Permite importar Database.py que está no diretório pai
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if parent_dir not in sys.path:
+    sys.path.append(parent_dir)
+from Database import Database
+
 # Configurações do GitHub e Groq
 REPO = "nicolaspn09/crawling-trf"
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
@@ -248,30 +254,31 @@ def main():
         if arg == "--days" and i + 1 < len(sys.argv):
             dias = int(sys.argv[i + 1])
 
-    # 1. Recupera o último commit SHA processado
-    path_ultimo = os.path.join(script_dir, "ultimo_commit.txt")
+    # Inicializa conexão com o Banco de Dados (Postgres) para recuperar o último SHA
+    db = None
     last_sha = None
-    if os.path.exists(path_ultimo):
-        try:
-            with open(path_ultimo, "r") as f:
-                last_sha = f.read().strip()
-            print(f"[INFO] Último commit processado anteriormente: {last_sha}")
-        except Exception as e:
-            print(f"[AVISO] Não foi possível ler ultimo_commit.txt: {e}")
+    try:
+        db = Database()
+        last_sha = db.obter_ultimo_sha_atualizacao()
+        if last_sha:
+            print(f"[INFO] Último commit processado recuperado do banco de dados (PG): {last_sha}")
+    except Exception as e:
+        print(f"[AVISO] Não foi possível conectar/obter o último SHA do banco de dados (PG). Usando janela temporal pura: {e}")
 
     print(f"[INFO] Coletando commits das últimas {dias*24} horas no repositório {REPO}...")
     commits, novo_ultimo_sha = obter_commits_recentes(days=dias, last_sha=last_sha)
 
     if not commits:
         print("[INFO] Nenhum commit novo e relevante para o CRM/TRF encontrado no período.")
-        # Se achou novos commits no GitHub mas nenhum era relevante, atualiza o SHA do mesmo jeito
-        if novo_ultimo_sha:
+        # Se achou novos commits no GitHub mas nenhum era relevante, atualiza o SHA no banco
+        if db and novo_ultimo_sha:
             try:
-                with open(path_ultimo, "w") as f:
-                    f.write(novo_ultimo_sha)
-                print(f"[INFO] Guardado SHA {novo_ultimo_sha} como processado.")
+                db.inserir_log_atualizacao(novo_ultimo_sha, "Nenhum commit relevante nesta execução.")
+                print(f"[INFO] Guardado SHA {novo_ultimo_sha} como processado no banco de dados (PG).")
             except Exception as e:
-                print(f"[AVISO] Falha ao atualizar ultimo_commit.txt: {e}")
+                print(f"[AVISO] Falha ao atualizar o SHA no banco de dados (PG): {e}")
+        if db:
+            db.fechar_conexao()
         sys.exit(0)
 
     print(f"[INFO] {len(commits)} commits relevantes coletados com detalhes de modificação.")
@@ -280,6 +287,8 @@ def main():
 
     if not resumo:
         print("[ERRO] Não foi possível gerar o resumo por IA.")
+        if db:
+            db.fechar_conexao()
         sys.exit(1)
 
     print("\n--- RESUMO DIARIO GERADO ---")
@@ -298,14 +307,19 @@ def main():
     assunto_email = f"Atualizações do Robô TRF4 - {data_hoje}"
     email_sucesso = enviar_email(assunto_email, resumo)
 
-    # 2. Se o envio foi feito ou se concluímos o resumo, salva o SHA do commit mais recente processado
+    # Se o envio foi feito com sucesso, salva o SHA do commit mais recente no banco de dados
     if email_sucesso and novo_ultimo_sha:
-        try:
-            with open(path_ultimo, "w") as f:
-                f.write(novo_ultimo_sha)
-            print(f"[INFO] Atualizado ultimo_commit.txt com o SHA {novo_ultimo_sha}.")
-        except Exception as e:
-            print(f"[AVISO] Falha ao gravar ultimo_commit.txt: {e}")
+        if db:
+            try:
+                db.inserir_log_atualizacao(novo_ultimo_sha, resumo)
+                print(f"[INFO] Atualizado o banco de dados (PG) com o SHA {novo_ultimo_sha}.")
+            except Exception as e:
+                print(f"[AVISO] Falha ao gravar log no banco de dados (PG): {e}")
+        else:
+            print("[AVISO] Banco de dados offline. O SHA não foi persistido.")
+
+    if db:
+        db.fechar_conexao()
 
 if __name__ == "__main__":
     main()

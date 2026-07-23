@@ -31,11 +31,47 @@ class Database:
                 self.cursor.execute("ALTER TABLE processos ADD COLUMN IF NOT EXISTS tem_tese_322 BOOLEAN DEFAULT FALSE;")
                 self.cursor.execute("ALTER TABLE processos ADD COLUMN IF NOT EXISTS tem_tese_emendas BOOLEAN DEFAULT FALSE;")
                 self.cursor.execute("ALTER TABLE processos ADD COLUMN IF NOT EXISTS tem_tese_buraco_negro BOOLEAN DEFAULT FALSE;")
+                
+                # Cria a tabela de controle de atualizações
+                self.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS controle_atualizacoes (
+                        id SERIAL PRIMARY KEY,
+                        data_envio TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        ultimo_sha VARCHAR(40) NOT NULL,
+                        resumo_enviado TEXT
+                    );
+                """)
             except Exception as ex:
-                print(f"[Aviso DB] Não foi possível verificar/criar colunas automaticamente: {ex}")
+                print(f"[Aviso DB] Não foi possível verificar/criar colunas ou tabelas automaticamente: {ex}")
         except Exception as e:
             print(f"Erro ao conectar ao banco de dados: {e}")
             raise
+
+    def obter_ultimo_sha_atualizacao(self):
+        """Busca o último commit SHA que foi processado e resumido no banco."""
+        try:
+            query = "SELECT ultimo_sha FROM controle_atualizacoes ORDER BY data_envio DESC LIMIT 1;"
+            self.cursor.execute(query)
+            result = self.cursor.fetchone()
+            return result['ultimo_sha'] if result else None
+        except Exception as e:
+            print(f"[Aviso DB] Erro ao obter último SHA de atualização: {e}")
+            return None
+
+    def inserir_log_atualizacao(self, sha, resumo):
+        """Grava um registro de resumo enviado no banco de dados."""
+        try:
+            query = """
+                INSERT INTO controle_atualizacoes (ultimo_sha, resumo_enviado)
+                VALUES (%s, %s)
+                RETURNING id;
+            """
+            self.cursor.execute(query, (sha, resumo))
+            result = self.cursor.fetchone()
+            return result['id'] if result else None
+        except Exception as e:
+            print(f"[Erro DB] Falha ao gravar log de atualização: {e}")
+            return None
 
     def obter_ou_criar_cliente(self, cpf, nome=None, telefone=None, email=None):
         """Busca o cliente pelo CPF. Se não existir, cria e retorna o ID."""
