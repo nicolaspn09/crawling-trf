@@ -59,7 +59,7 @@ class OrquestradorDrive:
                 print(f"  -> Pasta ESTADOS não encontrada em {pasta_tese['name']}")
 
     def _processar_estado(self, pasta_uf, processador_bot, tese):
-        analisado_folder_id = self.drive.buscar_ou_criar_pasta("ANALISADO", pasta_uf['id'])
+        finalizado_folder_id = self.drive.buscar_ou_criar_pasta("FINALIZADO", pasta_uf['id'])
         arquivos = self.drive.listar_arquivos(pasta_uf['id'])
         
         for arquivo in arquivos:
@@ -142,6 +142,6 @@ class OrquestradorDrive:
                 if os.path.exists(temp_file):
                     os.remove(temp_file)
 
-            # print(f"         Movendo {arquivo['name']} para ANALISADO...")
-            # self.drive.mover_arquivo(arquivo['id'], pasta_uf['id'], analisado_folder_id)
-            # print("         Movido com sucesso!")
+            print(f"         Movendo {arquivo['name']} para FINALIZADO...")
+            self.drive.mover_arquivo(arquivo['id'], pasta_uf['id'], finalizado_folder_id)
+            print("         Movido com sucesso!")
